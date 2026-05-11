@@ -487,13 +487,11 @@ input[type="date"].finput{color-scheme:light}
 
     <!-- HOME -->
     <div id="screen-home" class="screen on">
-      <div class="sdiv">Quick Sell</div>
-      <div style="position:relative;margin-bottom:10px">
-        <span class="search-icon" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;color:var(--muted)">🔍</span>
-        <input class="search-input" type="text" id="home-search" placeholder="Search product…" oninput="onHomeSearch(this.value)" autocomplete="off">
-      </div>
-      <div id="home-search-results" style="display:none;margin-bottom:8px"></div>
-      <div id="home-browse"></div>
+      <div class="alert g">🧊 FIFO active — sell older batches first to reduce waste.</div>
+      <div class="sdiv">🔥 Flash Sale Alerts</div>
+      <div id="home-flash-list"></div>
+      <div class="sdiv" style="margin-top:4px">📦 Batch Status by Product</div>
+      <div id="home-fifo-list"></div>
     </div>
 
     <!-- DASHBOARD -->
@@ -519,17 +517,17 @@ input[type="date"].finput{color-scheme:light}
     <!-- INVENTORY -->
     <div id="screen-inventory" class="screen">
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <div style="flex:1;background:linear-gradient(135deg,#2a0a0a,#1e0505);border:1px solid #4a1010;border-radius:var(--rs);padding:10px;text-align:center">
+        <div style="flex:1;background:rgba(232,0,26,0.07);border:1px solid rgba(232,0,26,0.2);border-radius:var(--rs);padding:10px;text-align:center">
           <div style="font-size:20px;font-family:'Syne',sans-serif;font-weight:800;color:var(--red)" id="inv-count-r">0</div>
-          <div style="font-size:10px;color:var(--red);font-weight:600;margin-top:2px">Critical</div>
+          <div style="font-size:10px;color:var(--red);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.5px">Critical</div>
         </div>
-        <div style="flex:1;background:linear-gradient(135deg,#2a1a0a,#1e1506);border:1px solid #4a3010;border-radius:var(--rs);padding:10px;text-align:center">
+        <div style="flex:1;background:rgba(245,168,0,0.08);border:1px solid rgba(245,168,0,0.25);border-radius:var(--rs);padding:10px;text-align:center">
           <div style="font-size:20px;font-family:'Syne',sans-serif;font-weight:800;color:var(--amber)" id="inv-count-a">0</div>
-          <div style="font-size:10px;color:var(--amber);font-weight:600;margin-top:2px">Low Stock</div>
+          <div style="font-size:10px;color:var(--amber);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.5px">Low Stock</div>
         </div>
-        <div style="flex:1;background:linear-gradient(135deg,#0a2518,#061408);border:1px solid #1a4028;border-radius:var(--rs);padding:10px;text-align:center">
+        <div style="flex:1;background:rgba(0,168,68,0.07);border:1px solid rgba(0,168,68,0.2);border-radius:var(--rs);padding:10px;text-align:center">
           <div style="font-size:20px;font-family:'Syne',sans-serif;font-weight:800;color:var(--green)" id="inv-count-g">0</div>
-          <div style="font-size:10px;color:var(--green);font-weight:600;margin-top:2px">Good Stock</div>
+          <div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.5px">Good Stock</div>
         </div>
       </div>
       <div id="inv-sections"></div>
@@ -796,11 +794,15 @@ input[type="date"].finput{color-scheme:light}
     <!-- ===== DYNAMIC UNIT COSTING ===== -->
     <div id="screen-costing" class="screen">
       <div class="sdiv">💡 Dynamic Unit Costing</div>
-      <div class="card" style="background:linear-gradient(135deg,#0a1a28,#0d1f30);border-color:#1a3060">
+      <div class="card">
         <div class="card-title" style="color:var(--blue)">Enter Purchase Details</div>
         <div class="frow">
           <label class="flabel">Product</label>
-          <select class="fselect" id="duc-product" onchange="calcDUC()"></select>
+          <div style="position:relative">
+            <input class="finput" type="text" id="duc-product-input" placeholder="Type to search product…" oninput="onDucProductSearch(this.value)" autocomplete="off">
+            <div id="duc-product-dropdown" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--surface);border:1.5px solid var(--green);border-radius:var(--rs);z-index:50;max-height:180px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.1)"></div>
+          </div>
+          <input type="hidden" id="duc-product">
         </div>
         <div class="f2col" style="margin-bottom:12px">
           <div>
@@ -853,8 +855,8 @@ input[type="date"].finput{color-scheme:light}
             <span class="pval" id="duc-r-current">—</span>
           </div>
         </div>
-        <div id="duc-r-warning" style="display:none" class="alert r" style="margin-top:8px"></div>
-        <button class="btn btn-g" style="width:100%;margin-top:12px;padding:14px" onclick="applyDUCPrice()">✅ Apply Recommended Price to Product</button>
+        <div id="duc-r-warning" style="display:none" class="alert r"></div>
+        <button class="btn btn-g" style="width:100%;margin-top:12px;padding:14px;font-family:'Syne',sans-serif;font-size:15px" onclick="applyDUCPrice()">🎯 Apply Target Margin Price to Product</button>
       </div>
     </div>
 
@@ -892,8 +894,8 @@ input[type="date"].finput{color-scheme:light}
 
   </div><!-- /content -->
 
-  <!-- FAB: brand green on inventory (add stock), red elsewhere (new sale) -->
-  <div class="fab" id="fab" onclick="handleFab()" style="background:var(--red);box-shadow:0 4px 24px rgba(232,69,60,0.4)">＋</div>
+  <!-- FAB: green ADD STOCK on inventory, red SALE elsewhere -->
+  <div class="fab" id="fab" onclick="handleFab()" style="background:var(--red);box-shadow:0 4px 24px rgba(232,0,26,0.35);width:auto;padding:0 22px;border-radius:28px;font-size:14px;font-weight:800;letter-spacing:1px;font-family:'Syne',sans-serif;color:#fff;height:52px">SALE</div>
 
 </div><!-- /shell -->
 
@@ -1334,12 +1336,17 @@ function navTo(name, btn){
   if(name==='transaction'||name==='cart'){ fab.style.display='none'; return; }
   fab.style.display='flex';
   if(name==='inventory'){
-    fab.style.background='var(--gdim)';
-    fab.style.boxShadow='0 4px 24px rgba(26,122,74,0.5)';
+    fab.style.background='var(--green)';
+    fab.style.boxShadow='0 4px 24px rgba(0,168,68,0.4)';
+    fab.textContent='ADD STOCK';
+    fab.style.color='#fff';
   } else {
     fab.style.background='var(--red)';
-    fab.style.boxShadow='0 4px 24px rgba(232,69,60,0.4)';
+    fab.style.boxShadow='0 4px 24px rgba(232,0,26,0.35)';
+    fab.textContent='SALE';
+    fab.style.color='#fff';
   }
+  if(name==='home') renderHomeFIFO();
   if(name==='delivery') populateDspTxns();
   if(name==='transactions') renderTxnsScreen();
   if(name==='fifo') renderFIFO();
@@ -2441,6 +2448,8 @@ function renderCart(){
   const el=document.getElementById('cart-rows'); if(!el) return;
   el.innerHTML=txnCart.map((item,i)=>{
     const p=getProd(item.id);
+    const sub = item.qty&&item.price ? '₦'+(item.qty*item.price).toLocaleString() : '—';
+    const cost = item.qty&&item.costPerUnit ? '₦'+(item.qty*item.costPerUnit).toLocaleString() : '—';
     return `<div class="cart-prow">
       <div class="cart-ptop"><span class="cart-pemoji">${p?p.emoji:'📦'}</span><span class="cart-pname">${p?p.name:item.id}</span><button class="cart-premove" onclick="remCartRow(${i})">✕</button></div>
       <div class="cart-pinputs">
@@ -2450,8 +2459,10 @@ function renderCart(){
           </select>
         </div>
         <div class="cart-ig"><label>Quantity</label><input class="finput" type="number" placeholder="0" value="${item.qty||''}" oninput="updCartRow(${i},'qty',this.value)"></div>
-        <div class="cart-ig"><label>Price (₦)</label><input class="finput" type="number" placeholder="${p?p.sell:0}" value="${item.price||''}" oninput="updCartRow(${i},'price',this.value)"></div>
-        <div class="cart-ig"><label>Subtotal</label><div class="finput" style="background:var(--surface2);color:var(--green);font-family:'Syne',sans-serif;font-weight:700" id="cs-${i}">${item.qty&&item.price?'₦'+(item.qty*item.price).toLocaleString():'—'}</div></div>
+        <div class="cart-ig"><label>Sell Price / Unit (₦)</label><input class="finput" type="number" placeholder="${p?p.sell:0}" value="${item.price||''}" oninput="updCartRow(${i},'price',this.value)"></div>
+        <div class="cart-ig"><label>Cost per Unit (₦)</label><input class="finput" type="number" placeholder="${p?p.buy:0}" value="${item.costPerUnit||''}" oninput="updCartRow(${i},'costPerUnit',this.value)" style="border-color:var(--amber)"></div>
+        <div class="cart-ig"><label>Sale Total</label><div class="finput" style="background:var(--green-deep);color:var(--green);font-family:'Syne',sans-serif;font-weight:700;border-color:rgba(0,168,68,0.3)" id="cs-${i}">${sub}</div></div>
+        <div class="cart-ig"><label>Total Cost</label><div class="finput" style="background:rgba(232,0,26,0.04);color:var(--red);font-family:'Syne',sans-serif;font-weight:700;border-color:rgba(232,0,26,0.2)" id="cc-${i}">${cost}</div></div>
       </div>
     </div>`;
   }).join('');
@@ -2459,9 +2470,12 @@ function renderCart(){
 }
 function remCartRow(i){ txnCart.splice(i,1); if(!txnCart.length){goBackToTxn();return;} renderCart(); }
 function updCartRow(i,field,val){
-  if(field==='qty'||field==='price'||field==='unitKg') txnCart[i][field]=parseFloat(val)||0;
-  const item=txnCart[i], sub=document.getElementById('cs-'+i);
+  if(['qty','price','unitKg','costPerUnit'].includes(field)) txnCart[i][field]=parseFloat(val)||0;
+  const item=txnCart[i];
+  const sub=document.getElementById('cs-'+i);
+  const cc=document.getElementById('cc-'+i);
   if(sub) sub.textContent=item.qty&&item.price?'₦'+(item.qty*item.price).toLocaleString():'—';
+  if(cc)  cc.textContent=item.qty&&item.costPerUnit?'₦'+(item.qty*item.costPerUnit).toLocaleString():'—';
   updateCartTotals();
 }
 function updateCartTotals(){
@@ -2585,14 +2599,24 @@ function addPurchaseItem(preloadId){
       <button onclick="clearPiProduct(${id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px">✕</button>
     </div>
     <div class="f2col" style="margin-bottom:10px">
-      <div><label class="flabel" style="font-size:10px;display:block;margin-bottom:4px;color:var(--muted)">QUANTITY</label><input class="finput" type="number" placeholder="e.g. 4" oninput="updPi(${id},'qty',this.value)"></div>
+      <div><label class="flabel" style="font-size:10px;display:block;margin-bottom:4px;color:var(--muted)">QUANTITY</label><input class="finput" type="number" placeholder="e.g. 4" id="pi-qty-${id}" oninput="updPi(${id},'qty',this.value);calcPiCost(${id})"></div>
       <div><label class="flabel" style="font-size:10px;display:block;margin-bottom:4px;color:var(--muted)">UNIT</label>
-        <select class="fselect" onchange="updPi(${id},'unitKg',this.value)">
+        <select class="fselect" onchange="updPi(${id},'unitKg',this.value);calcPiCost(${id})">
           <option value="1">kg</option><option value="0.25">Pieces</option><option value="5">Paint Bucket</option><option value="10">Larger Bucket</option><option value="50">Bag</option>
         </select>
       </div>
     </div>
-    <div class="frow"><label class="flabel">Price (₦)</label><input class="finput" type="number" placeholder="Total cost for this product" oninput="updPi(${id},'price',this.value)"></div>
+    <div class="f2col" style="margin-bottom:10px">
+      <div>
+        <label class="flabel" style="font-size:10px;display:block;margin-bottom:4px;color:var(--amber)">COST PER UNIT (₦)</label>
+        <input class="finput" type="number" id="pi-cpunit-${id}" placeholder="e.g. 350" style="border-color:var(--amber)" oninput="updPi(${id},'costPerUnit',parseFloat(this.value)||0);calcPiCost(${id})">
+      </div>
+      <div>
+        <label class="flabel" style="font-size:10px;display:block;margin-bottom:4px;color:var(--amber)">TOTAL PRODUCT COST (₦)</label>
+        <div class="finput" id="pi-totalcost-${id}" style="background:rgba(245,168,0,0.06);color:var(--amber);font-family:'Syne',sans-serif;font-weight:700;border-color:rgba(245,168,0,0.3)">—</div>
+      </div>
+    </div>
+    <div class="frow"><label class="flabel">Purchase Price (₦) <span style="font-size:10px;color:var(--muted);font-weight:400">or enter above to auto-fill</span></label><input class="finput" type="number" id="pi-price-${id}" placeholder="Total cost for this product" oninput="updPi(${id},'price',this.value)"></div>
     <div class="frow">
       <label class="flabel">Days to Expiry</label>
       <input class="finput" type="number" id="pi-exp-${id}" placeholder="${defProd&&defProd.defaultExpiry?'Default: '+defProd.defaultExpiry+' days':'e.g. 7, 14, 21 days'}" value="${defProd&&defProd.defaultExpiry?defProd.defaultExpiry:''}" oninput="updPi(${id},'expiry',this.value)">
@@ -3064,45 +3088,64 @@ function renderVelocity(){
 // ============================================================
 // DYNAMIC UNIT COSTING
 // ============================================================
-function initDUC(){
-  const sel = document.getElementById('duc-product');
-  if(!sel) return;
-  sel.innerHTML = products.map(p=>`<option value="${p.id}">${p.emoji} ${p.name}</option>`).join('');
+// ── DUC product text search ──────────────────────────────────
+function onDucProductSearch(val){
+  const drop = document.getElementById('duc-product-dropdown');
+  const hidden = document.getElementById('duc-product');
+  if(!drop) return;
+  if(!val.trim()){ drop.style.display='none'; if(hidden) hidden.value=''; calcDUC(); return; }
+  const q = val.toLowerCase();
+  const m = products.filter(p=>p.name.toLowerCase().includes(q)).slice(0,7);
+  if(!m.length){ drop.style.display='none'; return; }
+  drop.style.display='block';
+  drop.innerHTML = m.map(p=>`<div onclick="selectDucProduct('${p.id}')"
+    style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border)"
+    onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+    <span style="font-size:18px">${p.emoji}</span>
+    <div><div style="font-size:13px;font-weight:600;color:var(--text)">${p.name}</div>
+    <div style="font-size:11px;color:var(--muted)">${p.stock} ${p.unit} in stock · sell ₦${p.sell}</div></div>
+  </div>`).join('');
 }
+function selectDucProduct(id){
+  const p = getProd(id);
+  if(!p) return;
+  const inp = document.getElementById('duc-product-input');
+  const hid = document.getElementById('duc-product');
+  const drop= document.getElementById('duc-product-dropdown');
+  if(inp)  inp.value  = p.emoji + ' ' + p.name;
+  if(hid)  hid.value  = id;
+  if(drop) drop.style.display = 'none';
+  calcDUC();
+}
+function initDUC(){ /* no-op — product field is now a text search input */ }
 
 function calcDUC(){
   const pid      = document.getElementById('duc-product')?.value;
-  const qty      = parseFloat(document.getElementById('duc-qty')?.value) || 0;
-  const unitKg   = parseFloat(document.getElementById('duc-unit')?.value) || 1;
-  const cost     = parseFloat(document.getElementById('duc-cost')?.value) || 0;
+  const qty      = parseFloat(document.getElementById('duc-qty')?.value)       || 0;
+  const unitKg   = parseFloat(document.getElementById('duc-unit')?.value)      || 1;
+  const cost     = parseFloat(document.getElementById('duc-cost')?.value)      || 0;
   const transport= parseFloat(document.getElementById('duc-transport')?.value) || 0;
-  const margin   = parseFloat(document.getElementById('duc-margin')?.value) || 20;
-
+  const margin   = parseFloat(document.getElementById('duc-margin')?.value)    || 20;
   const res = document.getElementById('duc-result');
   if(!qty || !cost || !res){ if(res) res.style.display='none'; return; }
-
-  const totalKg   = qty * unitKg;
-  const totalCost = cost + transport;
-  const alc       = totalCost / totalKg;
-  const floor     = alc;
-  const minPrice  = alc * (1 + margin/100);
-  const rec       = alc * 1.35;
-  const prem      = alc * 1.50;
-
+  const totalKg  = qty * unitKg;
+  const totalCost= cost + transport;
+  const alc      = totalCost / totalKg;
+  const floor    = alc;
+  const minPrice = alc * (1 + margin/100);   // ← target margin price
+  const rec      = alc * 1.35;
+  const prem     = alc * 1.50;
   const fmt = v => '₦' + Math.round(v).toLocaleString();
   const g = id => document.getElementById(id);
-
   res.style.display = 'block';
   if(g('duc-r-total-kg'))  g('duc-r-total-kg').textContent  = totalKg + ' ' + (unitKg===1?'kg':'units');
   if(g('duc-r-prod-kg'))   g('duc-r-prod-kg').textContent   = fmt(cost/totalKg) + '/unit';
   if(g('duc-r-trans-kg'))  g('duc-r-trans-kg').textContent  = fmt(transport/totalKg) + '/unit';
   if(g('duc-r-alc'))       g('duc-r-alc').textContent       = fmt(alc) + '/unit';
   if(g('duc-r-floor'))     g('duc-r-floor').textContent     = fmt(floor) + '/unit';
-  if(g('duc-r-min'))       g('duc-r-min').textContent       = fmt(minPrice) + '/unit ('+margin+'% margin)';
-  if(g('duc-r-rec'))       g('duc-r-rec').textContent       = fmt(rec) + '/unit';
-  if(g('duc-r-prem'))      g('duc-r-prem').textContent      = fmt(prem) + '/unit';
-
-  // Show current vs ALC comparison
+  if(g('duc-r-min'))       g('duc-r-min').textContent       = fmt(minPrice) + '/unit (' + margin + '% target margin)';
+  if(g('duc-r-rec'))       g('duc-r-rec').textContent       = fmt(rec) + '/unit (35%)';
+  if(g('duc-r-prem'))      g('duc-r-prem').textContent      = fmt(prem) + '/unit (50%)';
   const p = getProd(pid);
   const warn = g('duc-r-warning');
   const curRow = g('duc-r-current-row');
@@ -3111,41 +3154,72 @@ function calcDUC(){
     if(curRow) curRow.style.display='flex';
     const diff = p.sell - alc;
     const pct  = Math.round((diff/alc)*100);
-    const col  = pct < 0 ? 'var(--red)' : pct < 20 ? 'var(--amber)' : 'var(--green)';
+    const col  = pct < 0 ? 'var(--red)' : pct < margin ? 'var(--amber)' : 'var(--green)';
     if(curEl) curEl.innerHTML = `<span style="color:${col}">₦${p.sell.toLocaleString()}</span> <span style="font-size:11px;color:${col}">(${pct>=0?'+':''}${pct}% vs ALC)</span>`;
     if(warn){
       if(pct < 0){
-        warn.style.display='flex'; warn.textContent='⚠️ Your current price ₦'+p.sell+' is BELOW the Avg Landed Cost of '+fmt(alc)+'. You are selling at a loss!';
-        warn.style.background='linear-gradient(135deg,#2a0a0a,#1e0505)'; warn.style.borderColor='#6a1010'; warn.style.color='var(--red)';
+        warn.style.display='flex'; warn.textContent='⚠️ Current price ₦'+p.sell+' is BELOW Avg Landed Cost '+fmt(alc)+'. Selling at a loss!';
       } else if(pct < margin){
-        warn.style.display='flex'; warn.textContent='💡 Current margin is '+pct+'%. Consider raising to at least '+fmt(minPrice)+' to hit your '+margin+'% target.';
-        warn.style.background='linear-gradient(135deg,#2a1a0a,#1e1506)'; warn.style.borderColor='#4a3010'; warn.style.color='var(--amber)';
-      } else {
-        warn.style.display='none';
-      }
+        warn.style.display='flex'; warn.textContent='💡 Current margin is '+pct+'%. Raise to at least '+fmt(minPrice)+' to hit your '+margin+'% target.';
+      } else { warn.style.display='none'; }
     }
   } else {
     if(curRow) curRow.style.display='none';
-    if(warn) warn.style.display='none';
+    if(warn)   warn.style.display='none';
   }
 }
 
 function applyDUCPrice(){
+  // Applies the TARGET MARGIN price (not the fixed 35% recommended)
   const pid    = document.getElementById('duc-product')?.value;
-  const qty    = parseFloat(document.getElementById('duc-qty')?.value) || 0;
-  const unitKg = parseFloat(document.getElementById('duc-unit')?.value) || 1;
-  const cost   = parseFloat(document.getElementById('duc-cost')?.value) || 0;
+  const qty    = parseFloat(document.getElementById('duc-qty')?.value)       || 0;
+  const unitKg = parseFloat(document.getElementById('duc-unit')?.value)      || 1;
+  const cost   = parseFloat(document.getElementById('duc-cost')?.value)      || 0;
   const trans  = parseFloat(document.getElementById('duc-transport')?.value) || 0;
-  if(!qty || !cost){ showToast('⚠️ Fill in all fields first','err'); return; }
-  const totalKg = qty * unitKg;
-  const alc     = (cost + trans) / totalKg;
-  const rec     = Math.round(alc * 1.35);
+  const margin = parseFloat(document.getElementById('duc-margin')?.value)    || 20;
+  if(!qty || !cost){ showToast('⚠️ Fill in quantity and cost first','err'); return; }
+  const alc       = (cost + trans) / (qty * unitKg);
+  const targetPrice = Math.round(alc * (1 + margin/100));
   const p = getProd(pid);
-  if(!p){ showToast('⚠️ Product not found','err'); return; }
+  if(!p){ showToast('⚠️ Select a product first','err'); return; }
   const old = p.sell;
-  p.sell = rec;
+  p.sell = targetPrice;
   renderInventory(); renderHomeBrowse();
-  showToast(`✅ ${p.name} sell price: ₦${old} → ₦${rec} (35% margin on ALC ₦${Math.round(alc)})`);
+  showToast(`✅ ${p.name}: ₦${old} → ₦${targetPrice} (${margin}% margin on ALC ₦${Math.round(alc)})`);
+}
+
+// ── Per-purchase-item cost auto-fill ─────────────────────────
+function calcPiCost(piId){
+  const item = procItems.find(i=>i.id===piId); if(!item) return;
+  const qty  = item.qty   || parseFloat(document.getElementById('pi-qty-'+piId)?.value)    || 0;
+  const cpu  = item.costPerUnit || parseFloat(document.getElementById('pi-cpunit-'+piId)?.value) || 0;
+  const totalCost = qty * cpu;
+  const tcEl = document.getElementById('pi-totalcost-'+piId);
+  if(tcEl) tcEl.textContent = totalCost > 0 ? '₦' + totalCost.toLocaleString() : '—';
+  // Auto-fill the purchase price field
+  if(totalCost > 0){
+    const priceEl = document.getElementById('pi-price-'+piId);
+    if(priceEl && !priceEl.value) priceEl.value = totalCost;
+    item.price = totalCost;
+    updateProcTotals();
+  }
+}
+
+// ── Home page FIFO render (mirrors screen-fifo) ───────────────
+function renderHomeFIFO(){
+  const flashEl = document.getElementById('home-flash-list');
+  const fifoEl  = document.getElementById('home-fifo-list');
+  if(!flashEl && !fifoEl) return;
+  // Reuse the FIFO rendering logic
+  renderFIFO();
+  // Mirror rendered content into home elements
+  const fifoSrc  = document.getElementById('fifo-list');
+  const flashSrc = document.getElementById('flash-sale-list');
+  if(fifoEl  && fifoSrc)  fifoEl.innerHTML  = fifoSrc.innerHTML;
+  if(flashEl && flashSrc) flashEl.innerHTML = flashSrc.innerHTML;
+  // If nothing rendered, show placeholder
+  if(fifoEl  && !fifoEl.innerHTML.trim())  fifoEl.innerHTML  = '<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:20px">No batch data yet. Log a purchase to start tracking.</div>';
+  if(flashEl && !flashEl.innerHTML.trim()) flashEl.innerHTML = '<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:20px">No flash sale alerts right now ✅</div>';
 }
 
 // ============================================================
