@@ -735,17 +735,21 @@ input[type="date"].finput{color-scheme:light}
 
     <!-- SETTINGS -->
     <div id="screen-settings" class="screen">
+
+      <!-- Account info -->
       <div class="sdiv">Account</div>
       <div class="card">
         <div style="display:flex;align-items:center;gap:14px;padding:4px 0">
-          <div style="width:56px;height:56px;background:var(--gdim);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--green);flex-shrink:0">AN</div>
+          <div id="settings-avatar" style="width:56px;height:56px;background:var(--green-deep);border:2px solid var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--green);flex-shrink:0">AN</div>
           <div>
-            <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">Ahmed Nahuche</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:2px">Trader Account</div>
-            <div style="font-size:11px;color:var(--gdim);margin-top:4px;font-weight:600">● Offline Mode</div>
+            <div id="settings-name" style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700">Ahmed Nahuche</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">👑 Owner Account</div>
+            <div style="font-size:11px;color:var(--green);margin-top:4px;font-weight:600">● Connected</div>
           </div>
         </div>
       </div>
+
+      <!-- Business preferences -->
       <div class="sdiv">Preferences</div>
       <div class="card">
         <div class="prow"><span class="plabel">Business Name</span><span style="font-size:13px;color:var(--dim)">MarketBOSS</span></div>
@@ -753,17 +757,71 @@ input[type="date"].finput{color-scheme:light}
         <div class="prow"><span class="plabel">Location</span><span style="font-size:13px;color:var(--dim)">Abuja, Nigeria</span></div>
         <div class="prow"><span class="plabel">Language</span><span style="font-size:13px;color:var(--dim)">English</span></div>
       </div>
+
+      <!-- Notifications -->
       <div class="sdiv">Notifications</div>
       <div class="card">
         <div class="prow"><span class="plabel">Low Stock Alerts</span><span style="color:var(--green);font-weight:700;font-size:13px">ON</span></div>
         <div class="prow"><span class="plabel">Credit Reminders</span><span style="color:var(--green);font-weight:700;font-size:13px">ON</span></div>
         <div class="prow"><span class="plabel">Daily Summary</span><span style="color:var(--amber);font-weight:700;font-size:13px">OFF</span></div>
       </div>
+
+      <!-- Data -->
       <div class="sdiv">Data</div>
       <div class="card">
         <div class="prow" style="cursor:pointer"><span class="plabel">Export Data</span><span style="color:var(--blue);font-size:13px">→ CSV</span></div>
         <div class="prow" style="cursor:pointer"><span class="plabel">Sync to Cloud</span><span style="color:var(--muted);font-size:13px">Coming soon</span></div>
       </div>
+
+      <!-- ─── STAFF PERMISSIONS ─── -->
+      <div class="sdiv">Staff Permissions</div>
+      <div class="card" style="padding:0">
+        <div id="settings-staff-list" style="padding:8px 0"></div>
+      </div>
+
+      <!-- ─── CREATE NEW ACCOUNT ─── -->
+      <div class="sdiv">Create New Account</div>
+      <div class="card">
+        <div class="frow">
+          <label class="flabel">Full Name</label>
+          <input class="finput" type="text" id="new-acc-name" placeholder="e.g. Fatima Yusuf">
+        </div>
+        <div class="frow">
+          <label class="flabel">Phone Number</label>
+          <input class="finput" type="tel" id="new-acc-phone" placeholder="e.g. 0801 234 5678">
+        </div>
+        <div class="frow">
+          <label class="flabel">4-Digit Passcode</label>
+          <input class="finput" type="password" id="new-acc-pin" placeholder="e.g. 1234" maxlength="4" inputmode="numeric" pattern="[0-9]{4}">
+        </div>
+        <div class="frow">
+          <label class="flabel">Role</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="new-acc-role-pills">
+            <div class="mpill sf" id="new-role-staff" onclick="selectNewRole('staff')" style="text-align:center;cursor:pointer">👤 Staff</div>
+            <div class="mpill" id="new-role-manager" onclick="selectNewRole('manager')" style="text-align:center;cursor:pointer">🔑 Manager</div>
+          </div>
+        </div>
+        <div class="frow" id="new-acc-store-row">
+          <label class="flabel">Assign to Store</label>
+          <select class="fselect" id="new-acc-store">
+            <option value="Wuse Market">Wuse Market</option>
+            <option value="Garki Branch">Garki Branch</option>
+            <option value="Gwagwalada Branch">Gwagwalada Branch</option>
+            <option value="Maitama Branch">Maitama Branch</option>
+            <option value="all">All Stores</option>
+          </select>
+        </div>
+        <div class="brow">
+          <button class="btn btn-g" onclick="createNewAccount()" style="font-family:'Syne',sans-serif;font-weight:700">+ Create Account</button>
+        </div>
+      </div>
+
+      <!-- Existing accounts list -->
+      <div class="sdiv">All Accounts</div>
+      <div class="card" style="padding:0">
+        <div id="settings-all-accounts" style="padding:8px 0"></div>
+      </div>
+
     </div>
 
     <!-- ===== FIFO / BATCH TRACKER ===== -->
@@ -1348,6 +1406,7 @@ function navTo(name, btn){
   if(name==='fifo') renderFIFO();
   if(name==='velocity') renderVelocity();
   if(name==='costing') initDUC();
+  if(name==='settings') renderSettings();
   if(name==='analytics'){
     const banner = document.getElementById('analytics-store-banner');
     if(banner && window.currentAccount){
@@ -3422,7 +3481,7 @@ function buildHmenu(account){
   const isOwner   = account.role === 'owner';
   const isManager = account.role === 'manager';
 
-  // Shared items — both owner and manager see these
+  // Shared items for BOTH owner and manager (except Settings)
   const sharedItems = `
     <div class="hmenu-lbl">Tools</div>
     <div class="hmenu-item" onclick="navTo('credit');closeHmenu()">💳 Credit Ledger</div>
@@ -3430,25 +3489,173 @@ function buildHmenu(account){
     <div class="hmenu-item" onclick="navTo('analytics');closeHmenu()">📊 Analytics${isManager&&account.store&&account.store!=='all'?' — '+account.store:''}</div>
     <div class="hmenu-item" onclick="navTo('fifo');closeHmenu()">🧊 FIFO & Batches</div>
     <div class="hmenu-item" onclick="navTo('velocity');closeHmenu()">📈 Velocity & Reorder</div>
-    <div class="hmenu-item" onclick="navTo('costing');closeHmenu()">💡 Unit Costing</div>
-    <div class="hmenu-item" onclick="navTo('settings');closeHmenu()">⚙️ Settings</div>`;
+    <div class="hmenu-item" onclick="navTo('costing');closeHmenu()">💡 Unit Costing</div>`;
 
-  // Owner-only section
+  // Settings — owner only
+  const settingsItem = isOwner
+    ? `<div class="hmenu-item" onclick="navTo('settings');closeHmenu()">⚙️ Settings</div>`
+    : '';
+
+  // Owner-only section — no longer includes Manage Staff Permissions (it's in Settings)
   const ownerItems = isOwner ? `
     <div style="height:1px;background:var(--border);margin:8px 20px 4px"></div>
     <div class="hmenu-lbl" style="color:var(--amber)">Owner Controls</div>
     <div class="hmenu-item" onclick="navToOwner();closeHmenu()">📊 Performance Dashboard</div>
-    <div class="hmenu-item" onclick="openStaffPermissionsPanel()">🔑 Manage Staff Permissions</div>
     <div class="hmenu-item" onclick="navTo('multistore');closeHmenu()">🏪 Multi-Store View</div>
     <div class="hmenu-item" onclick="showLoginScreen()">🔄 Switch Account</div>` : `
     <div style="height:1px;background:var(--border);margin:8px 20px 4px"></div>
     <div class="hmenu-item" onclick="showLoginScreen()">🔄 Switch Account</div>`;
 
-  panel.innerHTML = sharedItems + ownerItems;
+  panel.innerHTML = sharedItems + settingsItem + ownerItems;
 }
 
 // Keep ensureOwnerNav as a no-op alias (called from old code paths)
 function ensureOwnerNav(){ /* replaced by buildHmenu() */ }
+
+// ─────────────────────────────────────────────────────────────
+// SETTINGS — owner only
+// ─────────────────────────────────────────────────────────────
+let newAccRole = 'staff';
+
+function renderSettings(){
+  // Guard — only owner can access settings
+  if(!window.currentAccount || window.currentAccount.role !== 'owner') return;
+
+  // Update avatar/name with current owner
+  const acc = window.currentAccount;
+  const av  = document.getElementById('settings-avatar');
+  const nm  = document.getElementById('settings-name');
+  if(av) av.textContent = acc.initials || acc.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  if(nm) nm.textContent = acc.name;
+
+  // ── Staff Permissions list ──
+  const spList = document.getElementById('settings-staff-list');
+  if(spList){
+    const staffAccs = ACCOUNTS.filter(a => a.role === 'staff' || a.role === 'manager');
+    if(!staffAccs.length){
+      spList.innerHTML = '<div style="padding:14px 16px;font-size:13px;color:var(--muted)">No staff accounts yet. Create one below.</div>';
+    } else {
+      spList.innerHTML = staffAccs.map(a => `
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--dim);border:1px solid var(--border);flex-shrink:0">${a.initials}</div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:700;color:var(--text)">${a.name}</div>
+              <div style="font-size:11px;color:var(--muted)">${a.store} · ${a.role==='manager'?'🔑 Manager':'👤 Staff'}${a.phone?' · '+a.phone:''}</div>
+            </div>
+            <button onclick="deleteAccount('${a.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:4px">🗑</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;cursor:pointer;padding:6px 0">
+              <span style="color:var(--dim)">Can add/remove inventory</span>
+              <input type="checkbox" ${a.canManageInventory?'checked':''} onchange="togglePerm('${a.id}','canManageInventory',this.checked)" style="width:20px;height:20px;accent-color:var(--green);cursor:pointer">
+            </label>
+            <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;cursor:pointer;padding:6px 0">
+              <span style="color:var(--dim)">Can manage credit entries/payments</span>
+              <input type="checkbox" ${a.canManageCredit?'checked':''} onchange="togglePerm('${a.id}','canManageCredit',this.checked)" style="width:20px;height:20px;accent-color:var(--green);cursor:pointer">
+            </label>
+            <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;cursor:pointer;padding:6px 0">
+              <span style="color:var(--amber);font-weight:600">Promote to Manager</span>
+              <input type="checkbox" ${a.role==='manager'?'checked':''} onchange="toggleManagerRole('${a.id}',this.checked)" style="width:20px;height:20px;accent-color:var(--amber);cursor:pointer">
+            </label>
+          </div>
+        </div>`).join('');
+    }
+  }
+
+  // ── All Accounts list ──
+  const allList = document.getElementById('settings-all-accounts');
+  if(allList){
+    allList.innerHTML = ACCOUNTS.map(a => {
+      const roleLabel = a.role==='owner' ? '👑 Owner' : a.role==='manager' ? '🔑 Manager' : '👤 Staff';
+      const roleColor = a.role==='owner' ? 'var(--amber)' : a.role==='manager' ? 'var(--blue)' : 'var(--muted)';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)">
+        <div style="width:36px;height:36px;background:var(--surface2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:1px solid var(--border)">${a.initials}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${a.name}</div>
+          <div style="font-size:11px;color:var(--muted)">${a.store}${a.phone?' · '+a.phone:''}</div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:${roleColor}">${roleLabel}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Reset new account form
+  selectNewRole('staff');
+}
+
+function selectNewRole(role){
+  newAccRole = role;
+  const staffPill   = document.getElementById('new-role-staff');
+  const managerPill = document.getElementById('new-role-manager');
+  if(staffPill){
+    staffPill.className   = role === 'staff'   ? 'mpill sf' : 'mpill';
+    staffPill.style.textAlign='center'; staffPill.style.cursor='pointer';
+  }
+  if(managerPill){
+    managerPill.className = role === 'manager' ? 'mpill sp' : 'mpill';
+    managerPill.style.textAlign='center'; managerPill.style.cursor='pointer';
+  }
+}
+
+function createNewAccount(){
+  // Guard
+  if(!window.currentAccount || window.currentAccount.role !== 'owner'){
+    showToast('🔒 Only the owner can create accounts','error'); return;
+  }
+  const name  = (document.getElementById('new-acc-name')?.value  || '').trim();
+  const phone = (document.getElementById('new-acc-phone')?.value || '').trim();
+  const pin   = (document.getElementById('new-acc-pin')?.value   || '').trim();
+  const store = document.getElementById('new-acc-store')?.value  || 'Wuse Market';
+
+  if(!name)  { showToast('⚠️ Enter a name','error'); return; }
+  if(!phone) { showToast('⚠️ Enter a phone number','error'); return; }
+  if(pin.length !== 4 || !/^\d{4}$/.test(pin)){
+    showToast('⚠️ Passcode must be exactly 4 digits','error'); return;
+  }
+  // Check for duplicate phone
+  if(ACCOUNTS.find(a => a.phone === phone)){
+    showToast('⚠️ An account with this phone number already exists','error'); return;
+  }
+
+  const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const newAcc = {
+    id: 'acc_' + Date.now(),
+    name, phone, pin, store,
+    role: newAccRole,
+    initials,
+    avatar: newAccRole === 'manager' ? 'multi' : 'staff',
+    clockedIn: null,
+    shiftSales: 0,
+    shiftTxns: 0,
+    canManageInventory: newAccRole === 'manager',
+    canManageCredit:    newAccRole === 'manager',
+  };
+  ACCOUNTS.push(newAcc);
+
+  // Clear form
+  document.getElementById('new-acc-name').value  = '';
+  document.getElementById('new-acc-phone').value = '';
+  document.getElementById('new-acc-pin').value   = '';
+
+  // Re-render settings lists
+  renderSettings();
+  // Refresh login screen account list
+  if(typeof renderAccountList === 'function') renderAccountList();
+
+  showToast(`✅ ${name} added as ${newAccRole === 'manager' ? 'Manager' : 'Staff'}`);
+}
+
+function deleteAccount(accountId){
+  const acc = ACCOUNTS.find(a => a.id === accountId);
+  if(!acc) return;
+  if(acc.role === 'owner'){ showToast('🔒 Cannot delete owner account','error'); return; }
+  const idx = ACCOUNTS.indexOf(acc);
+  if(idx > -1) ACCOUNTS.splice(idx, 1);
+  renderSettings();
+  if(typeof renderAccountList === 'function') renderAccountList();
+  showToast(`🗑 ${acc.name}'s account removed`);
+}
 
 // ============================================================
 // STAFF PERMISSIONS PANEL (Owner only — guarded)
