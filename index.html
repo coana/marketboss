@@ -550,6 +550,13 @@ input[type="date"].finput{color-scheme:light}
         </div>
         <div class="subsec-body closed" id="ts-removals"><div id="ts-removals-list" style="padding:0 16px 8px"></div></div>
       </div>
+      <div class="subsec" style="border-color:rgba(245,168,0,0.4)">
+        <div class="subsec-hdr" onclick="toggleSec('ts-pending')" style="background:rgba(245,168,0,0.04)">
+          <div class="subsec-title" style="color:var(--amber)">⏳ Pending Transactions</div>
+          <div class="subsec-meta"><span class="subsec-count" id="ts-pending-count">—</span><div class="subsec-chev" id="chev-ts-pending">›</div></div>
+        </div>
+        <div class="subsec-body closed" id="ts-pending"><div id="ts-pending-list" style="padding:0 16px 8px"></div></div>
+      </div>
     </div>
 
     <!-- CREDIT -->
@@ -730,6 +737,7 @@ input[type="date"].finput{color-scheme:light}
           </div>
         </div>
         <button class="pay-btn" onclick="recordSale()">✅ Complete Transaction</button>
+        <button onclick="saveAsPending()" style="width:100%;margin-top:10px;padding:13px;background:rgba(245,168,0,0.1);border:1.5px solid var(--amber);border-radius:var(--rs);font-size:14px;font-weight:700;font-family:'Syne',sans-serif;color:var(--amber);cursor:pointer;transition:all .15s">⏳ Save as Pending</button>
       </div>
     </div>
 
@@ -2310,7 +2318,7 @@ function renderTxnsScreen(){
     if(!arr.length) return '<div style="padding:16px;color:var(--muted);font-size:13px;text-align:center">No records yet</div>';
     return arr.map(t=>{
       const i=txns.indexOf(t);
-      const serialTag=t.serial?`<span style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--blue);background:#0a1528;padding:2px 8px;border-radius:10px;margin-right:6px">${t.serial}</span>`:'';
+      const serialTag=t.serial?`<span style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--blue);background:rgba(21,101,192,0.1);padding:2px 8px;border-radius:10px;margin-right:6px">${t.serial}</span>`:'';
       return `<div class="ti" onclick="openTxnDetail(${i})">
         <div class="ti-icon ${t.type}">${t.icon}</div>
         <div class="ti-body">
@@ -2331,6 +2339,136 @@ function renderTxnsScreen(){
   const sc=document.getElementById('ts-sales-count'); if(sc) sc.textContent=sales.length+(sales.length===1?' record':' records');
   const pc=document.getElementById('ts-purchases-count'); if(pc) pc.textContent=purchases.length+(purchases.length===1?' record':' records');
   const rc=document.getElementById('ts-removals-count'); if(rc) rc.textContent=removals.length+(removals.length===1?' record':' records');
+  // Pending
+  renderPendingSection('ts-pending-list','ts-pending-count','owner');
+}
+
+// ============================================================
+// PENDING TRANSACTIONS
+// ============================================================
+const pendingTxns = []; // { id, label, cart, savedAt, staffId, mode }
+
+function saveAsPending(){
+  // Owner/manager cart
+  if(!txnCart || !txnCart.length){ showToast('⚠️ Cart is empty','error'); return; }
+  const id  = 'pend_' + Date.now();
+  const label = txnCart.map(i=>{ const p=getProd(i.id); return p?p.name:i.id; }).join(', ');
+  const grand = txnCart.reduce((s,i)=>s+(i.qty||0)*(i.price||0),0);
+  pendingTxns.unshift({
+    id, label,
+    cart: JSON.parse(JSON.stringify(txnCart)),
+    grand,
+    savedAt: now(),
+    savedDate: todayLabel(),
+    staffId: window.currentAccount ? window.currentAccount.id : null,
+    staffName: window.currentAccount ? window.currentAccount.name : 'Unknown',
+    mode: 'owner'
+  });
+  txnCart = [];
+  navTo(prevScreen || 'home');
+  renderTxnsScreen();
+  showToast('⏳ Transaction saved as pending — recall from Activities');
+}
+
+function staffSaveAsPending(){
+  // Staff cart
+  if(!staffTxnCart || !staffTxnCart.length){ showToast('⚠️ Cart is empty','error'); return; }
+  const id    = 'pend_' + Date.now();
+  const label = staffTxnCart.map(i=>{ const p=getProd(i.id); return p?p.name:i.id; }).join(', ');
+  const grand = staffTxnCart.reduce((s,i)=>s+(i.qty||0)*(i.price||0),0);
+  pendingTxns.unshift({
+    id, label,
+    cart: JSON.parse(JSON.stringify(staffTxnCart)),
+    grand,
+    savedAt: now(),
+    savedDate: todayLabel(),
+    staffId: window.staffAccount ? window.staffAccount.id : null,
+    staffName: window.staffAccount ? window.staffAccount.name : 'Staff',
+    mode: 'staff'
+  });
+  staffTxnCart = [];
+  closeStaffCartOverlay();
+  renderStaffTxnHistory();
+  showToast('⏳ Transaction saved as pending — recall from Transactions');
+}
+
+function recallPending(pendId){
+  const idx = pendingTxns.findIndex(p=>p.id===pendId);
+  if(idx === -1) return;
+  const pend = pendingTxns[idx];
+  pendingTxns.splice(idx, 1); // remove from pending
+  if(pend.mode === 'staff' && window.staffMode){
+    staffTxnCart = JSON.parse(JSON.stringify(pend.cart));
+    goToStaffCart();
+    showToast('✅ Pending cart restored — complete the transaction');
+  } else {
+    txnCart = JSON.parse(JSON.stringify(pend.cart));
+    navTo('cart');
+    renderCart();
+    showToast('✅ Pending cart restored — complete the transaction');
+  }
+  renderTxnsScreen();
+  renderStaffTxnHistory();
+}
+
+function deletePending(pendId){
+  const idx = pendingTxns.findIndex(p=>p.id===pendId);
+  if(idx > -1) pendingTxns.splice(idx, 1);
+  renderTxnsScreen();
+  renderStaffTxnHistory();
+  showToast('🗑 Pending transaction removed');
+}
+
+function renderPendingSection(listId, countId, context){
+  const listEl  = document.getElementById(listId);
+  const countEl = document.getElementById(countId);
+  if(!listEl) return;
+
+  // Filter by context: staff only sees their own pending
+  let items = pendingTxns;
+  if(context === 'staff' && window.staffAccount){
+    items = pendingTxns.filter(p => p.staffId === window.staffAccount.id || p.mode === 'staff');
+  }
+
+  if(countEl) countEl.textContent = items.length + (items.length===1?' item':' items');
+
+  if(!items.length){
+    listEl.innerHTML = '<div style="padding:14px;color:var(--muted);font-size:13px;text-align:center">No pending transactions</div>';
+    return;
+  }
+
+  listEl.innerHTML = items.map(p => {
+    const fmtGrand = '₦' + (p.grand||0).toLocaleString();
+    const productLines = p.cart.map(i=>{
+      const prod = getProd(i.id);
+      const sub  = i.qty&&i.price ? '₦'+(i.qty*i.price).toLocaleString() : '—';
+      return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--dim)">
+        <span>${prod?prod.emoji+' '+prod.name:i.id} × ${i.qty||'?'}</span>
+        <span style="font-weight:600">${sub}</span>
+      </div>`;
+    }).join('');
+
+    return `<div style="background:var(--surface);border:1px solid rgba(245,168,0,0.3);border-radius:var(--r);padding:14px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text)">${p.label.length>40?p.label.slice(0,40)+'…':p.label}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Saved by ${p.staffName} · ${p.savedDate} ${p.savedAt}</div>
+        </div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--amber);flex-shrink:0;margin-left:12px">${fmtGrand}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--rs);padding:8px 10px;margin-bottom:10px">${productLines}</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="recallPending('${p.id}')"
+          style="flex:1;padding:9px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:13px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif">
+          ↩ Recall & Complete
+        </button>
+        <button onclick="deletePending('${p.id}')"
+          style="width:44px;padding:9px;background:rgba(232,0,26,0.08);border:1px solid rgba(232,0,26,0.25);border-radius:var(--rs);font-size:14px;cursor:pointer;color:var(--red)">
+          🗑
+        </button>
+      </div>
+    </div>`;
+  }).join('');
 }
 function openTxnDetail(i){
   const t=txns[i]; if(!t) return;
@@ -3848,13 +3986,27 @@ function staffTab(name){
   const target = document.getElementById(targetId);
   if(target) target.style.display = 'block';
 
-  // Update tab button styles
+  // Update tab button styles + FAB label
+  const staffFab = document.getElementById('staff-fab');
   const allBtns = document.querySelectorAll('#staff-tabbar button');
   allBtns.forEach(btn => {
     const active = btn.id === 'staff-tab-' + name;
     btn.style.color             = active ? 'var(--green)' : 'var(--muted)';
     btn.style.borderBottomColor = active ? 'var(--green)' : 'transparent';
   });
+
+  // FAB: ADD STOCK on inventory tab, SALE everywhere else
+  if(staffFab){
+    if(name === 'inventory'){
+      staffFab.textContent    = 'ADD STOCK';
+      staffFab.style.background  = 'var(--green)';
+      staffFab.style.boxShadow   = '0 4px 20px rgba(0,168,68,0.4)';
+    } else {
+      staffFab.textContent    = 'SALE';
+      staffFab.style.background  = 'var(--red)';
+      staffFab.style.boxShadow   = '0 4px 20px rgba(232,0,26,0.35)';
+    }
+  }
 
   // Render content for the tab
   if(name === 'dashboard')     updateStaffDashboard();
@@ -3863,33 +4015,94 @@ function staffTab(name){
   if(name === 'credit-ledger') renderStaffCreditLedger();
 }
 
+// Staff FAB handler — context aware
+function handleStaffFab(){
+  const acc = window.staffAccount;
+  // If on inventory tab and has permission → open purchase log
+  const invEl = document.getElementById('staff-inventory');
+  if(invEl && invEl.style.display !== 'none' && acc && acc.canManageInventory){
+    openStaffPurchaseLog();
+  } else {
+    openTxnScreen();
+  }
+}
+
 function renderStaffInventory(){
-  const list = document.getElementById('staff-inv-list');
-  if(!list) return;
-  list.innerHTML = products.map(p => {
-    const max = 100, pct = Math.min(Math.round((p.stock/max)*100), 100);
-    const cls  = p.stock <= (p.redLvl||5) ? 'out' : p.stock <= (p.yellowLvl||20) ? 'low' : 'good';
-    const days = p.sold > 0 ? (p.stock/p.sold).toFixed(1) : '∞';
-    const barColor = cls==='good'?'var(--green)':cls==='low'?'var(--amber)':'var(--red)';
-    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:24px;flex-shrink:0">${p.emoji}</span>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:700">${p.name}</div>
-        <div style="font-size:11px;color:var(--muted);margin:2px 0">Cost ₦${p.buy}/${p.unit} · Sell ₦${p.sell}/${p.unit}</div>
-        <div style="height:4px;background:var(--surface2);border-radius:2px;margin-top:4px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px"></div>
+  // Mirrors the owner/manager inventory UI exactly — collapsible categories, Add/Remove buttons
+  const sectionsEl = document.getElementById('staff-inv-sections');
+  if(!sectionsEl) return;
+
+  const CAT_DEFS = [
+    { key:'vegetables', label:'🥦 Vegetables',    ids:['tomato','pepper','onion','cucumber','spinach','carrot','cabbage','habanero','broccoli','cauliflower','lettuce','beetroot','pumpkin','eggplant','sweetcorn','greenbeans','celery','zucchini','radish','peas','leek'] },
+    { key:'fruits',     label:'🍊 Fruits',         ids:['orange','pawpaw','watermelon','banana','mango','pineapple','avocado','lemon','apple','grape','strawberry','pear','coconut'] },
+    { key:'roots',      label:'🍠 Roots & Tubers', ids:['yam','potato','sweetpotato'] },
+    { key:'herbs',      label:'🌿 Herbs & Spices', ids:['ginger','garlic','mushroom'] },
+    { key:'consumer',   label:'🛒 Consumer Goods', ids:['eggs','bread','rice','ketchup','flour','sugar','salt','pasta','oil','milk','butter','beans','noodles','sardines','mayonnaise','yoghurt'] },
+  ];
+
+  let crit=0, low=0, good=0;
+  products.forEach(p => {
+    if(p.stock <= (p.redLvl||5)) crit++;
+    else if(p.stock <= (p.yellowLvl||20)) low++;
+    else good++;
+  });
+  const cr=document.getElementById('staff-inv-count-r');
+  const ca=document.getElementById('staff-inv-count-a');
+  const cg=document.getElementById('staff-inv-count-g');
+  if(cr) cr.textContent=crit;
+  if(ca) ca.textContent=low;
+  if(cg) cg.textContent=good;
+
+  sectionsEl.innerHTML = CAT_DEFS.map(cat => {
+    const items = products.filter(p => cat.ids.includes(p.id));
+    if(!items.length) return '';
+    const bodyId = 'staff-inv-body-' + cat.key;
+    const chevId = 'staff-inv-chev-' + cat.key;
+    const rows = items.map(p => {
+      const max = 100;
+      const pct  = Math.min(Math.round((p.stock/max)*100), 100);
+      const cls  = p.stock <= (p.redLvl||5) ? 'r' : p.stock <= (p.yellowLvl||20) ? 'a' : 'g';
+      const col  = cls==='g' ? 'var(--green)' : cls==='a' ? 'var(--amber)' : 'var(--red)';
+      const days = p.sold > 0 ? (p.stock/p.sold).toFixed(1) : '∞';
+      return `<div class="inv-row">
+        <div class="inv-emoji">${p.emoji}</div>
+        <div class="inv-info">
+          <div class="inv-name">${p.name}</div>
+          <div class="inv-detail">Cost ₦${p.buy}/${p.unit||'kg'} · Sell ₦${p.sell}/${p.unit||'kg'}</div>
+          <div class="prog"><div class="progf ${cls}" style="width:${pct}%"></div></div>
+          <div class="inv-actions">
+            <button class="inv-btn inv-btn-add" onclick="openInvAdd('${p.id}')">+ Add</button>
+            <button class="inv-btn inv-btn-rem" onclick="openInvRemove('${p.id}')">− Remove</button>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;margin-top:6px">
-          <button onclick="openStaffInvAdd('${p.id}')" style="flex:1;padding:5px 0;background:#0a2518;color:var(--green);border:1px solid var(--green-dim);border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body)">+ Add</button>
-          <button onclick="openStaffInvRemove('${p.id}')" style="flex:1;padding:5px 0;background:#2a0a0a;color:var(--red);border:1px solid #6a1010;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body)">− Remove</button>
+        <div class="inv-right">
+          <div class="inv-kg ${cls}">${p.stock}${p.unit||'kg'}</div>
+          <div class="inv-days">${days}d left</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="subsec" style="margin-bottom:10px">
+      <div class="subsec-hdr" onclick="toggleStaffInvCat('${bodyId}','${chevId}')">
+        <div class="subsec-title">${cat.label}</div>
+        <div class="subsec-meta">
+          <span class="subsec-count">${items.length} items</span>
+          <div class="subsec-chev" id="${chevId}">›</div>
         </div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:${barColor}">${p.stock}${p.unit}</div>
-        <div style="font-size:10px;color:var(--muted)">${days}d left</div>
+      <div class="subsec-body closed" id="${bodyId}" style="padding:0 14px 8px">
+        ${rows}
       </div>
     </div>`;
   }).join('');
+}
+
+function toggleStaffInvCat(bodyId, chevId){
+  const b=document.getElementById(bodyId), c=document.getElementById(chevId);
+  if(!b) return;
+  const open=!b.classList.contains('closed');
+  b.classList.toggle('closed', open);
+  if(c) c.classList.toggle('open', !open);
 }
 
 function renderStaffCreditLedger(){
@@ -3958,25 +4171,6 @@ function openStaffCreditDetail(customerId){
   if(typeof openCreditDetail === 'function'){
     openCreditDetail(customerId);
   }
-}
-
-function openStaffInvAdd(productId){
-  openInvAdd(productId);
-  // After sheet closes, re-render staff inventory
-  const origFn = window.__origInvAdd || (window.__origInvAdd = window.confirmInvAdd);
-  window.confirmInvAdd = function(){
-    origFn.call(this);
-    renderStaffInventory();
-  };
-}
-
-function openStaffInvRemove(productId){
-  openInvRemove(productId);
-  const origFn = window.__origInvRemove || (window.__origInvRemove = window.confirmInvRemove);
-  window.confirmInvRemove = function(){
-    origFn.call(this);
-    renderStaffInventory();
-  };
 }
 
 function openStaffPurchaseLog(){
@@ -4806,15 +5000,41 @@ setTimeout(()=>{
       </div>
     </div>
 
+    <!-- Pending transactions collapsible -->
+    <div class="inv-subsection" style="border-color:rgba(245,168,0,0.35)">
+      <div class="inv-subsection-header" onclick="toggleStaffCat('staff-txn-pend-body','staff-txn-pend-chev')" style="background:rgba(245,168,0,0.04)">
+        <div class="inv-subsection-title" style="color:var(--amber)">⏳ Pending</div>
+        <div class="inv-subsection-meta">
+          <span class="inv-subsection-count" id="staff-txn-pend-count" style="color:var(--amber)">0</span>
+          <div class="inv-subsection-chevron" id="staff-txn-pend-chev" style="color:var(--amber)">›</div>
+        </div>
+      </div>
+      <div class="inv-subsection-body collapsed" id="staff-txn-pend-body">
+        <div id="staff-txn-pend-list" style="padding-bottom:8px;font-size:13px;color:var(--muted);padding:12px 0">No pending transactions</div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ── INVENTORY (shown only if canManageInventory) ── -->
   <div id="staff-inventory" style="display:none;flex:1;overflow-y:auto;padding:14px 14px 100px">
-    <div style="font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--dim);margin-bottom:12px;display:flex;align-items:center;gap:8px">
-      Stock Ledger<div style="flex:1;height:1px;background:var(--border)"></div>
-      <button onclick="openStaffPurchaseLog()" style="background:var(--green);color:#0a1a10;border:none;border-radius:20px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body)">+ Log Purchase</button>
+    <!-- Summary row — mirrors owner inventory header -->
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="flex:1;background:rgba(232,0,26,0.07);border:1px solid rgba(232,0,26,0.2);border-radius:var(--rs);padding:10px;text-align:center">
+        <div style="font-size:20px;font-family:'Syne',sans-serif;font-weight:800;color:var(--red)" id="staff-inv-count-r">0</div>
+        <div style="font-size:10px;color:var(--red);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.5px">Critical</div>
+      </div>
+      <div style="flex:1;background:rgba(245,168,0,0.08);border:1px solid rgba(245,168,0,0.25);border-radius:var(--rs);padding:10px;text-align:center">
+        <div style="font-size:20px;font-family:'Syne',sans-serif;font-weight:800;color:var(--amber)" id="staff-inv-count-a">0</div>
+        <div style="font-size:10px;color:var(--amber);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.5px">Low Stock</div>
+      </div>
+      <div style="flex:1;background:rgba(0,168,68,0.07);border:1px solid rgba(0,168,68,0.2);border-radius:var(--rs);padding:10px;text-align:center">
+        <div style="font-size:20px;font-family:'Syne',sans-serif;font-weight:800;color:var(--green)" id="staff-inv-count-g">0</div>
+        <div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.5px">Good Stock</div>
+      </div>
     </div>
-    <div id="staff-inv-list"></div>
+    <!-- Collapsible category sections — same as owner -->
+    <div id="staff-inv-sections"></div>
   </div>
 
   <!-- ── CREDIT LEDGER (shown only if canManageCredit) ── -->
@@ -4823,7 +5043,7 @@ setTimeout(()=>{
       Credit Ledger<div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
     <!-- Total owed summary -->
-    <div style="background:linear-gradient(135deg,#2a0a0a,#1e0505);border:1px solid #6a1010;border-radius:var(--r);padding:14px 16px;margin-bottom:12px">
+    <div style="background:rgba(232,0,26,0.06);border:1px solid rgba(232,0,26,0.2);border-radius:var(--r);padding:14px 16px;margin-bottom:12px">
       <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Total Outstanding</div>
       <div style="font-family:var(--font-head);font-size:26px;font-weight:800;color:var(--red)" id="staff-credit-total">₦0</div>
       <div style="font-size:12px;color:var(--muted);margin-top:4px" id="staff-credit-count">0 customers</div>
@@ -4832,8 +5052,9 @@ setTimeout(()=>{
     <div id="staff-credit-list"></div>
   </div>
 
-  <!-- Staff FAB — red, opens new transaction -->
-  <div onclick="openTxnScreen()" style="position:fixed;bottom:24px;right:calc(50% - 215px + 16px);width:52px;height:52px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;box-shadow:0 4px 24px rgba(232,69,60,0.4);z-index:150;color:#fff" id="staff-fab">＋</div>
+  <!-- Staff FAB — pill button, SALE by default, ADD STOCK on inventory tab -->
+  <div onclick="handleStaffFab()" id="staff-fab"
+    style="position:fixed;bottom:24px;right:calc(50% - 215px + 16px);height:48px;width:auto;padding:0 24px;background:var(--red);border-radius:28px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;letter-spacing:1px;font-family:'Syne',sans-serif;color:#fff;cursor:pointer;box-shadow:0 4px 20px rgba(232,0,26,0.35);z-index:150;transition:background .2s,box-shadow .2s">SALE</div>
 
 </div>
 
@@ -4968,7 +5189,8 @@ setTimeout(()=>{
       </div>
     </div>
 
-    <button onclick="recordStaffSale()" style="width:100%;padding:16px;background:var(--green);color:#0a1a10;border:none;border-radius:var(--rs);font-size:16px;font-weight:700;font-family:var(--font-head);cursor:pointer">💳 Process Payment</button>
+    <button onclick="recordStaffSale()" style="width:100%;padding:16px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:16px;font-weight:700;font-family:var(--font-head);cursor:pointer">💳 Process Payment</button>
+    <button onclick="staffSaveAsPending()" style="width:100%;margin-top:10px;padding:13px;background:rgba(245,168,0,0.1);border:1.5px solid var(--amber);border-radius:var(--rs);font-size:14px;font-weight:700;font-family:'Syne',sans-serif;color:var(--amber);cursor:pointer">⏳ Save as Pending</button>
   </div>
 </div>
 
