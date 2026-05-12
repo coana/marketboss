@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -462,17 +463,10 @@ input[type="date"].finput{color-scheme:light}
     </div>
   </div>
 
-  <!-- Hamburger overlay -->
+  <!-- Hamburger overlay — content built dynamically per role by buildHmenu() -->
   <div class="hmenu-overlay" id="hmenu" onclick="closeHmenu()">
-    <div class="hmenu-panel" onclick="event.stopPropagation()">
-      <div class="hmenu-lbl">More</div>
-      <div class="hmenu-item" onclick="navTo('credit')">💳 Credit Ledger</div>
-      <div class="hmenu-item" onclick="navTo('delivery')">🚴 Dispatch</div>
-      <div class="hmenu-item" onclick="navTo('analytics')">📊 Analytics</div>
-      <div class="hmenu-item" onclick="navTo('fifo')">🧊 FIFO & Batches</div>
-      <div class="hmenu-item" onclick="navTo('velocity')">📈 Velocity & Reorder</div>
-      <div class="hmenu-item" onclick="navTo('costing')">💡 Unit Costing</div>
-      <div class="hmenu-item" onclick="navTo('settings')">⚙️ Settings</div>
+    <div class="hmenu-panel" onclick="event.stopPropagation()" id="hmenu-panel">
+      <!-- populated by buildHmenu() -->
     </div>
   </div>
 
@@ -609,6 +603,8 @@ input[type="date"].finput{color-scheme:light}
 
     <!-- ANALYTICS -->
     <div id="screen-analytics" class="screen">
+      <!-- Store scope banner — shown for managers, hidden for owners -->
+      <div id="analytics-store-banner" style="display:none;background:rgba(21,101,192,0.08);border:1px solid rgba(21,101,192,0.25);border-radius:var(--rs);padding:9px 14px;margin-bottom:12px;font-size:12px;font-weight:700;color:var(--blue)"></div>
       <div class="subsec">
         <div class="subsec-hdr" onclick="toggleSec('an-vel')">
           <div class="subsec-title">📊 Trader Intelligence</div>
@@ -1352,6 +1348,19 @@ function navTo(name, btn){
   if(name==='fifo') renderFIFO();
   if(name==='velocity') renderVelocity();
   if(name==='costing') initDUC();
+  if(name==='analytics'){
+    const banner = document.getElementById('analytics-store-banner');
+    if(banner && window.currentAccount){
+      const acc = window.currentAccount;
+      if(acc.role === 'manager' && acc.store && acc.store !== 'all'){
+        banner.style.display = 'block';
+        banner.innerHTML = '🏪 Showing analytics for: <strong>' + acc.store + '</strong>';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+    renderHeat();
+  }
   if(name==='owner') renderOwnerDashboard();
   if(name==='multistore'){ renderMultiStore(); }
   closeHmenu();
@@ -3361,52 +3370,85 @@ function checkPin(){
 
 function launchForRole(account){
   window.currentAccount = account;
-  if(account.role === 'owner'){
-    // Owner — full app + owner-only controls in hamburger
-    document.querySelector('.shell').style.display = 'flex';
-    updateHeaderForRole(account);
-    ensureOwnerNav();  // only called for owner
-    renderHomeBrowse();
-    renderInventory();
-    renderCredit();
-    renderDeliveries();
-    renderAlerts();
-    renderHeat();
-  } else {
-    // Manager and Staff both use the restricted staff view
-    // Manager has canManageInventory + canManageCredit = true
-    // The staff view dynamically shows Inventory + Credit Ledger tabs based on permissions
+  if(account.role === 'staff'){
+    // Pure staff — restricted view
     launchStaffView(account);
+    return;
   }
+  // Owner OR Manager — both get the full shell
+  const shell = document.querySelector('.shell');
+  if(shell) shell.style.display = 'flex';
+  updateHeaderForRole(account);
+  buildHmenu(account);          // role-specific hamburger
+  renderHomeFIFO();
+  renderInventory();
+  renderCredit();
+  renderDeliveries();
+  renderAlerts();
+  renderHeat();
 }
 
 function updateHeaderForRole(account){
+  // Logo subtitle
   const logo = document.querySelector('.logo');
-  if(logo) logo.innerHTML = `MarketBoss<span>Welcome, ${account.name}</span>`;
+  if(logo){
+    const storeLabel = account.store && account.store !== 'all'
+      ? account.store
+      : account.role === 'owner' ? 'All Stores' : 'Manager';
+    logo.innerHTML = `MarketBoss<span>${account.name} · ${storeLabel}</span>`;
+  }
+  // Role badge
   const hdrRight = document.querySelector('.hdr-right');
-  if(hdrRight && !hdrRight.querySelector('.role-badge')){
+  if(hdrRight){
+    // Remove any existing badge first (avoid duplicates on re-launch)
+    const existing = hdrRight.querySelector('.role-badge');
+    if(existing) existing.remove();
     const badge = document.createElement('div');
-    badge.className = 'role-badge ' + (account.role === 'owner' ? 'owner' : account.role === 'manager' ? 'multi' : 'staff');
-    badge.textContent = account.role === 'owner' ? '👑 Owner' : account.role === 'manager' ? '🔑 Manager' : '👤 Staff';
+    badge.className = 'role-badge ' + (account.role === 'owner' ? 'owner' : 'multi');
+    badge.textContent = account.role === 'owner' ? '👑 Owner' : '🔑 Manager';
+    badge.style.cssText = 'padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;' +
+      (account.role === 'owner'
+        ? 'background:rgba(245,168,0,0.15);color:var(--amber);border:1px solid var(--amber)'
+        : 'background:rgba(21,101,192,0.12);color:var(--blue);border:1px solid var(--blue)');
     hdrRight.insertBefore(badge, hdrRight.firstChild);
   }
 }
 
-function ensureOwnerNav(){
-  // Only called for owner accounts — safe to always add owner controls
-  const hmenu = document.querySelector('.hmenu-panel');
-  if(!hmenu || hmenu.querySelector('[data-owner-added]')) return;
-  const div = document.createElement('div');
-  div.setAttribute('data-owner-added','1');
-  div.innerHTML = `
-    <div style="height:1px;background:var(--border);margin:8px 20px"></div>
-    <div style="padding:8px 20px 4px;font-family:var(--font-head);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Owner Controls</div>
-    <div class="hmenu-item" onclick="navToOwner()">📊 Performance Dashboard</div>
+// ─── Build hamburger menu content based on role ───────────────
+function buildHmenu(account){
+  const panel = document.getElementById('hmenu-panel');
+  if(!panel) return;
+
+  const isOwner   = account.role === 'owner';
+  const isManager = account.role === 'manager';
+
+  // Shared items — both owner and manager see these
+  const sharedItems = `
+    <div class="hmenu-lbl">Tools</div>
+    <div class="hmenu-item" onclick="navTo('credit');closeHmenu()">💳 Credit Ledger</div>
+    <div class="hmenu-item" onclick="navTo('delivery');closeHmenu()">🚴 Dispatch</div>
+    <div class="hmenu-item" onclick="navTo('analytics');closeHmenu()">📊 Analytics${isManager&&account.store&&account.store!=='all'?' — '+account.store:''}</div>
+    <div class="hmenu-item" onclick="navTo('fifo');closeHmenu()">🧊 FIFO & Batches</div>
+    <div class="hmenu-item" onclick="navTo('velocity');closeHmenu()">📈 Velocity & Reorder</div>
+    <div class="hmenu-item" onclick="navTo('costing');closeHmenu()">💡 Unit Costing</div>
+    <div class="hmenu-item" onclick="navTo('settings');closeHmenu()">⚙️ Settings</div>`;
+
+  // Owner-only section
+  const ownerItems = isOwner ? `
+    <div style="height:1px;background:var(--border);margin:8px 20px 4px"></div>
+    <div class="hmenu-lbl" style="color:var(--amber)">Owner Controls</div>
+    <div class="hmenu-item" onclick="navToOwner();closeHmenu()">📊 Performance Dashboard</div>
     <div class="hmenu-item" onclick="openStaffPermissionsPanel()">🔑 Manage Staff Permissions</div>
-    <div class="hmenu-item" onclick="navTo('multistore')">🏪 Multi-Store View</div>
+    <div class="hmenu-item" onclick="navTo('multistore');closeHmenu()">🏪 Multi-Store View</div>
+    <div class="hmenu-item" onclick="showLoginScreen()">🔄 Switch Account</div>` : `
+    <div style="height:1px;background:var(--border);margin:8px 20px 4px"></div>
     <div class="hmenu-item" onclick="showLoginScreen()">🔄 Switch Account</div>`;
-  hmenu.appendChild(div);
+
+  panel.innerHTML = sharedItems + ownerItems;
 }
+
+// Keep ensureOwnerNav as a no-op alias (called from old code paths)
+function ensureOwnerNav(){ /* replaced by buildHmenu() */ }
 
 // ============================================================
 // STAFF PERMISSIONS PANEL (Owner only — guarded)
