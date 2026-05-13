@@ -108,6 +108,29 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .subsec-chev.open{transform:rotate(90deg)}
 .subsec-body{overflow:hidden;transition:max-height 0.3s ease,opacity 0.25s;max-height:4000px;opacity:1}
 .subsec-body.closed{max-height:0!important;opacity:0}
+.inv-subsection-body.collapsed{max-height:0!important;opacity:0;overflow:hidden}
+.inv-subsection-body{overflow:hidden;transition:max-height 0.3s ease,opacity 0.25s;max-height:4000px;opacity:1}
+/* ── Staff transaction browse item styles ── */
+.txn-result-item{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);margin-bottom:7px;cursor:pointer;transition:all .15s}
+.txn-result-item:active{background:rgba(0,168,68,0.06);border-color:var(--green)}
+.txn-result-add{background:var(--green);color:#fff;border:none;border-radius:20px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;white-space:nowrap}
+.txn-result-added{background:rgba(0,168,68,0.1);color:var(--green);border:1px solid var(--green-dim);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;white-space:nowrap}
+/* ── Mode pills (staff cart payment modes) ── */
+.mode-pill{padding:9px 14px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--muted);transition:all .15s;text-align:center;white-space:nowrap}
+.mode-pill.selected-full{background:rgba(0,168,68,0.1);color:var(--green);border-color:var(--green)}
+.mode-pill.selected-partial{background:rgba(245,168,0,0.1);color:var(--amber);border-color:var(--amber)}
+.mode-pill.selected-credit{background:rgba(232,0,26,0.08);color:var(--red);border-color:var(--red)}
+/* ── Pay method pills (staff cart) ── */
+.pay-method-pill{flex:1;padding:9px 6px;border-radius:var(--rs);border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--muted);transition:all .15s;text-align:center}
+.pay-method-pill.selected{background:rgba(21,101,192,0.1);color:var(--blue);border-color:var(--blue)}
+.inv-subsection{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.inv-subsection-header{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;cursor:pointer;user-select:none;transition:background 0.15s}
+.inv-subsection-header:active,.inv-subsection-header:hover{background:var(--surface2)}
+.inv-subsection-title{display:flex;align-items:center;gap:8px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:0.8px}
+.inv-subsection-meta{display:flex;align-items:center;gap:8px}
+.inv-subsection-count{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--surface2);color:var(--amber);border:1px solid var(--border)}
+.inv-subsection-chevron{font-size:16px;color:var(--green);transition:transform 0.25s;font-weight:700}
+.inv-subsection-chevron.open{transform:rotate(90deg)}
 
 /* ── Section divider ── */
 .sdiv{font-family:var(--font-head);font-size:12px;font-weight:700;color:var(--amber);margin:14px 0 8px;display:flex;align-items:center;gap:8px;text-transform:uppercase;letter-spacing:0.8px}
@@ -2371,7 +2394,6 @@ function saveAsPending(){
 }
 
 function staffSaveAsPending(){
-  // Staff cart
   if(!staffTxnCart || !staffTxnCart.length){ showToast('⚠️ Cart is empty','error'); return; }
   const id    = 'pend_' + Date.now();
   const label = staffTxnCart.map(i=>{ const p=getProd(i.id); return p?p.name:i.id; }).join(', ');
@@ -2388,8 +2410,17 @@ function staffSaveAsPending(){
   });
   staffTxnCart = [];
   closeStaffCartOverlay();
+  // Go to Transactions tab and open Pending section
+  staffTab('transactions');
   renderStaffTxnHistory();
-  showToast('⏳ Transaction saved as pending — recall from Transactions');
+  // Auto-open the Pending subsection
+  const pendBody = document.getElementById('staff-txn-pend-body');
+  const pendChev = document.getElementById('staff-txn-pend-chev');
+  if(pendBody && pendBody.classList.contains('collapsed')){
+    pendBody.classList.remove('collapsed');
+    if(pendChev) pendChev.classList.add('open');
+  }
+  showToast('⏳ Saved as pending — find it in Transactions → Pending');
 }
 
 function recallPending(pendId){
@@ -4072,7 +4103,7 @@ function renderStaffInventory(){
           <div class="prog"><div class="progf ${cls}" style="width:${pct}%"></div></div>
           <div class="inv-actions">
             <button class="inv-btn inv-btn-add" onclick="openInvAdd('${p.id}')">+ Add</button>
-            <button class="inv-btn inv-btn-rem" onclick="openInvRemove('${p.id}')">− Remove</button>
+            <button class="inv-btn inv-btn-rem" onclick="openInvRem('${p.id}')">− Remove</button>
           </div>
         </div>
         <div class="inv-right">
@@ -4253,6 +4284,9 @@ function renderStaffTxnHistory(){
 
   if(salesEl) salesEl.innerHTML = saleTxns.length ? saleTxns.map(txnRow).join('') : '<div style="padding:12px 0;font-size:13px;color:var(--muted)">No sales recorded yet</div>';
   if(purEl)   purEl.innerHTML   = purTxns.length  ? purTxns.map(txnRow).join('')  : '<div style="padding:12px 0;font-size:13px;color:var(--muted)">No purchases recorded yet</div>';
+
+  // Render pending transactions for this staff member
+  renderPendingSection('staff-txn-pend-list', 'staff-txn-pend-count', 'staff');
 }
 
 function updateStaffDashboard(){
