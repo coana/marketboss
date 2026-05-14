@@ -3511,89 +3511,228 @@ const THANKYOU_CANDIDATES = [
 // ============================================================
 let currentAccount = null;
 let pinBuffer = '';
-let pinTarget = null;
+let pinTarget  = null;
 let staffShiftStart = null;
 let staffShiftSales = 0;
 let staffShiftTxns  = 0;
+let suStoreType     = 'single';
+let signedUpAccount = null;
 
 // ============================================================
-// LOGIN FLOW
+// SHOW LOGIN SCREEN
 // ============================================================
 function showLoginScreen(){
-  document.getElementById('login-screen').style.display = 'flex';
-  document.querySelector('.shell').style.display = 'none';
-  renderAccountList();
+  const shell=document.querySelector('.shell');
+  if(shell) shell.style.display='none';
+  const ss=document.getElementById('staff-screen');
+  if(ss) ss.style.display='none';
+  const pin=document.getElementById('login-pin-card');
+  if(pin) pin.style.display='none';
+  const ls=document.getElementById('login-screen');
+  if(ls){ ls.style.display='flex'; ls.style.flexDirection='column'; ls.style.alignItems='center'; ls.style.minHeight='100vh'; }
+  const hasOwner=ACCOUNTS.some(a=>a.role==='owner');
+  switchAuthTab(hasOwner?'login':'signup');
 }
 
-function renderAccountList(){
-  const el = document.getElementById('account-list'); if(!el) return;
-  el.innerHTML = ACCOUNTS.map(a => {
-    const roleLabel = a.role==='owner'
-      ? '👑 Owner'
-      : a.role==='manager'
-        ? '🔑 Manager — '+a.store
-        : '👤 Staff — '+a.store;
-    return `<div class="account-item" onclick="selectAccount('${a.id}')">
-      <div class="acct-avatar ${a.avatar}">${a.initials}</div>
-      <div class="acct-info">
-        <div class="acct-name">${a.name}</div>
-        <div class="acct-role">${roleLabel}</div>
-      </div>
-      <div style="color:var(--muted);font-size:16px">›</div>
-    </div>`;
-  }).join('');
+// ── Tab switcher ──────────────────────────────────────────
+function switchAuthTab(tab){
+  const su=document.getElementById('auth-signup');
+  const li=document.getElementById('auth-login');
+  const tb1=document.getElementById('auth-tab-signup');
+  const tb2=document.getElementById('auth-tab-login');
+  if(tab==='signup'){
+    if(su) su.style.display='block'; if(li) li.style.display='none';
+    if(tb1){ tb1.style.background='var(--green)'; tb1.style.color='#fff'; }
+    if(tb2){ tb2.style.background='transparent';  tb2.style.color='var(--muted)'; }
+    goToSignupStep(1);
+  } else {
+    if(su) su.style.display='none'; if(li) li.style.display='block';
+    if(tb1){ tb1.style.background='transparent';  tb1.style.color='var(--muted)'; }
+    if(tb2){ tb2.style.background='var(--green)';  tb2.style.color='#fff'; }
+    renderAccountList();
+  }
 }
 
+// ── Sign Up steps ─────────────────────────────────────────
+function goToSignupStep(n){
+  [1,2,3].forEach(i=>{
+    const el=document.getElementById('signup-step-'+i);
+    if(el) el.style.display=(i===n)?'block':'none';
+  });
+}
+
+function signupStep1Next(){
+  const name =(document.getElementById('su-name')?.value||'').trim();
+  const phone=(document.getElementById('su-phone')?.value||'').trim();
+  const pass = document.getElementById('su-pass')?.value||'';
+  const pass2= document.getElementById('su-pass2')?.value||'';
+  const err  = document.getElementById('su-step1-err');
+  const show = m=>{ if(err){ err.textContent=m; err.style.display='block'; } };
+  if(err) err.style.display='none';
+  if(!name)             { show('Please enter your full name.'); return; }
+  if(phone.length<10)   { show('Enter a valid phone number (at least 10 digits).'); return; }
+  if(pass.length<4)     { show('Password must be at least 4 characters.'); return; }
+  if(pass!==pass2)      { show('Passwords do not match. Please re-enter.'); return; }
+  if(ACCOUNTS.find(a=>a.phone===phone)){ show('An account with this phone already exists. Please sign in.'); return; }
+  suStoreType='single'; selectStoreType('single');
+  goToSignupStep(2);
+}
+
+function selectStoreType(type){
+  suStoreType=type;
+  const sc=document.getElementById('setup-single');
+  const mc=document.getElementById('setup-multi');
+  const c1=document.getElementById('check-single');
+  const c2=document.getElementById('check-multi');
+  const mb=document.getElementById('multi-branches-row');
+  if(sc){ sc.style.borderColor=type==='single'?'var(--green)':'var(--border)'; sc.style.background=type==='single'?'var(--green-deep)':'var(--surface)'; }
+  if(mc){ mc.style.borderColor=type==='multi' ?'var(--blue)' :'var(--border)'; mc.style.background=type==='multi' ?'rgba(21,101,192,0.06)':'var(--surface)'; }
+  if(c1) c1.style.display=type==='single'?'flex':'none';
+  if(c2) c2.style.display=type==='multi' ?'flex':'none';
+  if(mb) mb.style.display=type==='multi' ?'block':'none';
+}
+
+function signupFinish(){
+  const name     =(document.getElementById('su-name')?.value||'').trim();
+  const phone    =(document.getElementById('su-phone')?.value||'').trim();
+  const pass     = document.getElementById('su-pass')?.value||'';
+  const storeName=(document.getElementById('su-store-name')?.value||'').trim()||name+"'s Store";
+  const brRaw    =(document.getElementById('su-branches')?.value||'').trim();
+  const err      = document.getElementById('su-step2-err');
+  const show     = m=>{ if(err){ err.textContent=m; err.style.display='block'; } };
+  if(err) err.style.display='none';
+  if(!storeName)                    { show('Please enter your store or business name.'); return; }
+  if(suStoreType==='multi'&&!brRaw) { show('Please enter at least one branch name.'); return; }
+  const digits=pass.replace(/\D/g,'');
+  const pin=(digits.length>=4)?digits.slice(0,4):pass.slice(0,4).padEnd(4,'0');
+  const initials=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const branches=suStoreType==='multi'?brRaw.split(',').map(b=>b.trim()).filter(Boolean):[storeName];
+  const newOwner={
+    id:'owner_'+Date.now(), name, phone, pin, pass, role:'owner',
+    initials, avatar:'owner',
+    store:suStoreType==='multi'?'all':storeName,
+    storeName, storeType:suStoreType, branches,
+    singleStore:suStoreType==='single',
+  };
+  ACCOUNTS.unshift(newOwner);
+  signedUpAccount=newOwner;
+  const pd=document.getElementById('su-pin-display');
+  if(pd) pd.textContent=pin.split('').join(' ');
+  const wm=document.getElementById('su-welcome-msg');
+  if(wm) wm.textContent=`Welcome, ${name}! Your ${storeName} workspace is ready.`;
+  goToSignupStep(3);
+}
+
+function finishOnboarding(){
+  if(!signedUpAccount){ showLoginScreen(); return; }
+  const ls=document.getElementById('login-screen');
+  if(ls) ls.style.display='none';
+  launchForRole(signedUpAccount);
+}
+
+function togglePassVis(id,btn){
+  const inp=document.getElementById(id); if(!inp) return;
+  if(inp.type==='password'){ inp.type='text'; btn.textContent='🙈'; }
+  else{ inp.type='password'; btn.textContent='👁'; }
+}
+
+// ── Login submit ──────────────────────────────────────────
+function loginSubmit(){
+  const phone=(document.getElementById('li-phone')?.value||'').trim();
+  const pass = document.getElementById('li-pass')?.value||'';
+  const err  = document.getElementById('li-err');
+  const show = m=>{ if(err){ err.textContent=m; err.style.display='block'; } };
+  if(err) err.style.display='none';
+  if(!phone){ show('Enter your phone number.'); return; }
+  if(!pass) { show('Enter your password.'); return; }
+  const acc=ACCOUNTS.find(a=>a.phone===phone);
+  if(!acc)                      { show('No account found with this phone number.'); return; }
+  if(acc.pass&&acc.pass!==pass) { show('Incorrect password. Please try again.'); return; }
+  selectAccount(acc.id);
+}
+
+// ── Account select → PIN ──────────────────────────────────
 function selectAccount(id){
-  pinTarget = ACCOUNTS.find(a => a.id === id);
+  pinTarget=ACCOUNTS.find(a=>a.id===id);
   if(!pinTarget) return;
-  pinBuffer = '';
-  document.getElementById('login-select-card').style.display = 'none';
-  document.getElementById('login-pin-card').style.display    = 'block';
-  document.getElementById('pin-name').textContent  = pinTarget.name;
-  document.getElementById('pin-role').textContent  = pinTarget.role === 'owner' ? '👑 Owner Account' : pinTarget.role === 'manager' ? '🔑 Manager Account' : '👤 Staff Account';
-  document.getElementById('pin-error').style.display = 'none';
+  pinBuffer='';
+  const pin=document.getElementById('login-pin-card');
+  if(pin) pin.style.display='flex';
+  const pn=document.getElementById('pin-name');
+  const pr=document.getElementById('pin-role');
+  const pe=document.getElementById('pin-error');
+  if(pn) pn.textContent=pinTarget.name;
+  if(pr) pr.textContent=pinTarget.role==='owner'?'👑 Owner Account':pinTarget.role==='manager'?'🔑 Manager Account':'👤 Staff Account';
+  if(pe) pe.textContent='';
   updatePinDots();
 }
 
 function backToSelect(){
-  document.getElementById('login-pin-card').style.display   = 'none';
-  document.getElementById('login-select-card').style.display = 'block';
-  pinBuffer = ''; pinTarget = null;
+  pinBuffer=''; pinTarget=null;
+  const pin=document.getElementById('login-pin-card');
+  if(pin) pin.style.display='none';
+  updatePinDots();
 }
 
+// ── PIN pad ───────────────────────────────────────────────
 function pinKey(k){
-  if(pinBuffer.length >= 4) return;
-  pinBuffer += k;
-  updatePinDots();
-  if(pinBuffer.length === 4) setTimeout(checkPin, 150);
+  if(pinBuffer.length>=4) return;
+  pinBuffer+=k; updatePinDots();
+  if(pinBuffer.length===4) setTimeout(checkPin,150);
 }
-function pinBack(){ pinBuffer = pinBuffer.slice(0,-1); updatePinDots(); }
-function pinClear(){ pinBuffer = ''; updatePinDots(); }
+function pinBack()  { pinBuffer=pinBuffer.slice(0,-1); updatePinDots(); }
+function pinClear() { pinBuffer=''; updatePinDots(); }
 
 function updatePinDots(){
   for(let i=0;i<4;i++){
-    const d = document.getElementById('pd'+i);
-    if(d) d.className = 'pin-dot' + (i < pinBuffer.length ? ' filled' : '');
+    const d=document.getElementById('pd'+i);
+    if(d) d.className='pin-dot'+(i<pinBuffer.length?' filled':'');
   }
 }
 
 function checkPin(){
   if(!pinTarget) return;
-  if(pinBuffer === pinTarget.pin){
-    currentAccount = pinTarget;
-    document.getElementById('login-screen').style.display = 'none';
+  const pe=document.getElementById('pin-error');
+  if(pinBuffer===pinTarget.pin){
+    currentAccount=pinTarget;
+    const ls=document.getElementById('login-screen');
+    if(ls) ls.style.display='none';
+    const pin=document.getElementById('login-pin-card');
+    if(pin) pin.style.display='none';
+    pinBuffer=''; pinTarget=null;
     launchForRole(currentAccount);
   } else {
-    document.getElementById('pin-error').style.display = 'block';
-    pinBuffer = '';
-    updatePinDots();
-    // Shake animation
-    const card = document.getElementById('login-pin-card');
-    card.style.transition = 'transform 0.1s';
-    card.style.transform = 'translateX(-8px)';
-    setTimeout(()=>{ card.style.transform='translateX(8px)'; setTimeout(()=>{ card.style.transform=''; },100); },100);
+    if(pe) pe.textContent='Incorrect PIN. Try again.';
+    pinBuffer=''; updatePinDots();
+    const card=document.getElementById('login-pin-card');
+    if(card){
+      card.style.transition='transform 0.1s';
+      card.style.transform='translateX(-8px)';
+      setTimeout(()=>{ card.style.transform='translateX(8px)'; setTimeout(()=>{ card.style.transform=''; },100); },100);
+    }
   }
+}
+
+// ── Account list (shown in Login tab) ────────────────────
+function renderAccountList(){
+  const el=document.getElementById('account-list'); if(!el) return;
+  if(!ACCOUNTS.length){
+    el.innerHTML='<div style="text-align:center;font-size:13px;color:var(--muted);padding:16px 0">No accounts yet. Create one above.</div>';
+    return;
+  }
+  el.innerHTML=ACCOUNTS.map(a=>{
+    const rl=a.role==='owner'?'👑 Owner':a.role==='manager'?'🔑 Manager':'👤 Staff';
+    const rc=a.role==='owner'?'var(--amber)':a.role==='manager'?'var(--blue)':'var(--muted)';
+    const st=(a.store&&a.store!=='all')?' · '+a.store:'';
+    return `<div class="account-item" onclick="selectAccount('${a.id}')">
+      <div class="acct-avatar ${a.avatar||'staff'}">${a.initials||'?'}</div>
+      <div class="acct-info">
+        <div class="acct-name">${a.name}</div>
+        <div class="acct-role" style="color:${rc}">${rl}${st}</div>
+      </div>
+      <div style="color:var(--muted);font-size:18px">›</div>
+    </div>`;
+  }).join('');
 }
 
 function launchForRole(account){
@@ -4907,31 +5046,197 @@ setTimeout(()=>{
   <div class="splash-sub">Loading your market...</div>
 </div>
 
-<!-- LOGIN SCREEN -->
-<div class="login-shell" id="login-screen" style="display:none">
-  <div class="login-logo">MarketBoss</div>
-  <div class="login-tag">It's Built For You</div>
-  <div class="login-card" id="login-select-card">
-    <div class="login-title">Select Account</div>
-    <div class="account-list" id="account-list"></div>
+<!-- AUTH SCREEN: Sign Up / Login -->
+<div class="login-shell" id="login-screen" style="display:none;overflow-y:auto;padding:0;justify-content:flex-start">
+
+  <!-- Brand header -->
+  <div style="text-align:center;padding:48px 24px 28px;flex-shrink:0">
+    <div style="font-family:var(--font-logo);font-size:56px;color:var(--green);line-height:1;margin-bottom:4px">MarketBoss</div>
+    <div style="font-family:var(--font-tag);font-size:22px;color:var(--muted);letter-spacing:1px">It's Built For You</div>
   </div>
-  <!-- PIN entry card -->
-  <div class="login-card" id="login-pin-card" style="display:none">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <button onclick="backToSelect()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">‹</button>
-      <div>
-        <div class="login-title" style="margin-bottom:0;text-align:left" id="pin-name">Enter PIN</div>
-        <div style="font-size:11px;color:var(--muted)" id="pin-role">Owner</div>
-      </div>
+
+  <!-- ── CARD SWITCHER ── -->
+  <div style="width:100%;max-width:400px;margin:0 auto;padding:0 20px 40px;flex:1">
+
+    <!-- TAB TOGGLE: Sign Up | Login -->
+    <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:30px;padding:4px;margin-bottom:24px">
+      <button id="auth-tab-signup" onclick="switchAuthTab('signup')"
+        style="flex:1;padding:10px;border:none;border-radius:26px;font-size:13px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer;background:var(--green);color:#fff;transition:all .2s">
+        Create Account
+      </button>
+      <button id="auth-tab-login" onclick="switchAuthTab('login')"
+        style="flex:1;padding:10px;border:none;border-radius:26px;font-size:13px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer;background:transparent;color:var(--muted);transition:all .2s">
+        Sign In
+      </button>
     </div>
-    <div class="pin-display" id="pin-display">
+
+    <!-- ══════════════════════ SIGN UP FLOW ══════════════════════ -->
+    <div id="auth-signup" style="display:block">
+
+      <!-- Step 1: Account Details -->
+      <div id="signup-step-1">
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--text);margin-bottom:6px">Create your account</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Set up MarketBoss for your business</div>
+
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:6px">Full Name</label>
+          <input id="su-name" class="finput" type="text" placeholder="e.g. Ahmed Nahuche" autocomplete="name">
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:6px">Phone Number <span style="color:var(--muted);font-size:10px;font-weight:400;text-transform:none">(this is your username)</span></label>
+          <input id="su-phone" class="finput" type="tel" placeholder="e.g. 08012345678" inputmode="tel">
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:6px">Password</label>
+          <div style="position:relative">
+            <input id="su-pass" class="finput" type="password" placeholder="Create a strong password" style="padding-right:48px">
+            <button onclick="togglePassVis('su-pass',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">👁</button>
+          </div>
+        </div>
+        <div style="margin-bottom:24px">
+          <label style="font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:6px">Confirm Password</label>
+          <div style="position:relative">
+            <input id="su-pass2" class="finput" type="password" placeholder="Re-enter your password" style="padding-right:48px">
+            <button onclick="togglePassVis('su-pass2',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">👁</button>
+          </div>
+        </div>
+        <div id="su-step1-err" style="display:none;background:rgba(232,0,26,0.06);border:1px solid rgba(232,0,26,0.25);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:14px;font-weight:600"></div>
+        <button onclick="signupStep1Next()"
+          style="width:100%;padding:15px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:15px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer;transition:all .15s">
+          Continue →
+        </button>
+        <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--muted)">
+          Already have an account? <span onclick="switchAuthTab('login')" style="color:var(--green);font-weight:700;cursor:pointer">Sign In</span>
+        </div>
+      </div>
+
+      <!-- Step 2: Store Setup -->
+      <div id="signup-step-2" style="display:none">
+        <button onclick="goToSignupStep(1)" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;margin-bottom:16px;display:flex;align-items:center;gap:6px;font-family:'DM Sans',sans-serif">‹ Back</button>
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--text);margin-bottom:6px">Setup your store</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:28px">How do you want to manage your business?</div>
+
+        <!-- Single Store card -->
+        <div id="setup-single" onclick="selectStoreType('single')"
+          style="background:var(--surface);border:2px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:14px;cursor:pointer;transition:all .2s;position:relative">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:52px;height:52px;background:var(--green-deep);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">🏪</div>
+            <div>
+              <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--text)">Single Store</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:3px">One location, focused operations. All tools in one place.</div>
+            </div>
+          </div>
+          <div id="check-single" style="display:none;position:absolute;top:12px;right:12px;width:24px;height:24px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700">✓</div>
+        </div>
+
+        <!-- Multi Store card -->
+        <div id="setup-multi" onclick="selectStoreType('multi')"
+          style="background:var(--surface);border:2px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:28px;cursor:pointer;transition:all .2s;position:relative">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:52px;height:52px;background:rgba(21,101,192,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">🏬</div>
+            <div>
+              <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--text)">Multi-Store</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:3px">Multiple branches. Manage all locations from one account.</div>
+            </div>
+          </div>
+          <div id="check-multi" style="display:none;position:absolute;top:12px;right:12px;width:24px;height:24px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700">✓</div>
+        </div>
+
+        <!-- Store name -->
+        <div id="store-name-row" style="margin-bottom:16px">
+          <label style="font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:6px">Store / Business Name</label>
+          <input id="su-store-name" class="finput" type="text" placeholder="e.g. Nahuche Fresh Produce">
+        </div>
+
+        <!-- Branch names (multi only) -->
+        <div id="multi-branches-row" style="display:none;margin-bottom:16px">
+          <label style="font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:6px">Branch Names <span style="color:var(--muted);font-weight:400;text-transform:none">(comma separated)</span></label>
+          <input id="su-branches" class="finput" type="text" placeholder="e.g. Wuse, Garki, Maitama">
+        </div>
+
+        <div id="su-step2-err" style="display:none;background:rgba(232,0,26,0.06);border:1px solid rgba(232,0,26,0.25);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:14px;font-weight:600"></div>
+        <button onclick="signupFinish()"
+          style="width:100%;padding:15px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:15px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer">
+          🚀 Create Account & Get Started
+        </button>
+      </div>
+
+      <!-- Step 3: Success -->
+      <div id="signup-step-3" style="display:none;text-align:center;padding:24px 0">
+        <div style="font-size:64px;margin-bottom:16px">🎉</div>
+        <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Welcome aboard!</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:8px" id="su-welcome-msg">Your account has been created.</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:28px">Your <strong>4-digit PIN</strong> is your password's first 4 characters. You can change it in Settings.</div>
+        <div style="background:var(--green-deep);border:1px solid rgba(0,168,68,0.3);border-radius:var(--r);padding:16px;margin-bottom:24px">
+          <div style="font-size:12px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Your Login PIN</div>
+          <div id="su-pin-display" style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--green);letter-spacing:8px">0000</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">First 4 characters of your password (numbers only)</div>
+        </div>
+        <button onclick="finishOnboarding()"
+          style="width:100%;padding:15px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:15px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer">
+          Enter MarketBoss →
+        </button>
+      </div>
+
+    </div><!-- /auth-signup -->
+
+    <!-- ══════════════════════ LOGIN FLOW ══════════════════════ -->
+    <div id="auth-login" style="display:none">
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--text);margin-bottom:6px">Welcome back</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Sign in to your MarketBoss account</div>
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:6px">Phone Number</label>
+        <input id="li-phone" class="finput" type="tel" placeholder="e.g. 08012345678" inputmode="tel">
+      </div>
+      <div style="margin-bottom:24px">
+        <label style="font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:6px">Password</label>
+        <div style="position:relative">
+          <input id="li-pass" class="finput" type="password" placeholder="Enter your password" style="padding-right:48px">
+          <button onclick="togglePassVis('li-pass',this)" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">👁</button>
+        </div>
+      </div>
+      <div id="li-err" style="display:none;background:rgba(232,0,26,0.06);border:1px solid rgba(232,0,26,0.25);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:14px;font-weight:600"></div>
+      <button onclick="loginSubmit()"
+        style="width:100%;padding:15px;background:var(--green);color:#fff;border:none;border-radius:var(--rs);font-size:15px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer">
+        Sign In →
+      </button>
+
+      <!-- OR divider -->
+      <div style="display:flex;align-items:center;gap:12px;margin:20px 0">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <div style="font-size:12px;color:var(--muted);font-weight:600">or</div>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+
+      <!-- Staff accounts list -->
+      <div style="font-size:12px;color:var(--muted);font-weight:600;text-align:center;margin-bottom:12px">Select an existing account</div>
+      <div id="account-list" style="display:flex;flex-direction:column;gap:8px"></div>
+
+      <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--muted)">
+        No account yet? <span onclick="switchAuthTab('signup')" style="color:var(--green);font-weight:700;cursor:pointer">Create one</span>
+      </div>
+    </div><!-- /auth-login -->
+
+  </div><!-- /card switcher -->
+
+  <!-- PIN entry card — shown over the auth screen -->
+  <div id="login-pin-card" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1001;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800" id="pin-name">Enter PIN</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px" id="pin-role">Owner</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;cursor:pointer" onclick="backToSelect()">
+      <span style="font-size:13px;color:var(--muted)">‹ Change account</span>
+    </div>
+    <div class="pin-display" id="pin-display" style="margin:20px 0">
       <div class="pin-dot" id="pd0"></div>
       <div class="pin-dot" id="pd1"></div>
       <div class="pin-dot" id="pd2"></div>
       <div class="pin-dot" id="pd3"></div>
     </div>
-    <div id="pin-error" style="text-align:center;font-size:12px;color:var(--red);margin-bottom:8px;display:none">Incorrect PIN. Try again.</div>
-    <div class="pin-pad">
+    <div id="pin-error" style="text-align:center;font-size:12px;color:var(--red);margin-bottom:8px;min-height:18px"></div>
+    <div class="pin-pad" style="width:100%;max-width:300px">
       <div class="pin-key" onclick="pinKey('1')">1</div>
       <div class="pin-key" onclick="pinKey('2')">2</div>
       <div class="pin-key" onclick="pinKey('3')">3</div>
@@ -4941,12 +5246,13 @@ setTimeout(()=>{
       <div class="pin-key" onclick="pinKey('7')">7</div>
       <div class="pin-key" onclick="pinKey('8')">8</div>
       <div class="pin-key" onclick="pinKey('9')">9</div>
-      <div class="pin-key" onclick="pinClear()" style="font-size:11px;color:var(--red)">CLR</div>
+      <div class="pin-key" onclick="pinClear()" style="font-size:11px;color:var(--red);font-weight:700">CLR</div>
       <div class="pin-key" onclick="pinKey('0')">0</div>
-      <div class="pin-key" onclick="pinBack()" style="font-size:16px;color:var(--muted)">⌫</div>
+      <div class="pin-key" onclick="pinBack()" style="font-size:18px;color:var(--muted)">⌫</div>
     </div>
   </div>
-</div>
+
+</div><!-- /login-shell -->
 
 <!-- SUB-ACCOUNT SCREEN (Staff / Manager restricted view) -->
 <div id="staff-screen" style="display:none;max-width:430px;margin:0 auto;min-height:100vh;flex-direction:column;background:var(--bg)">
