@@ -1,0 +1,56 @@
+/* styles.css */
+
+/* General Reset */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+/* Header Styles */
+header {
+    background-color: #4CAF50;
+    color: white;
+    text-align: center;
+    padding: 1.5rem 0;
+}
+
+header .logo h1 {
+    font-size: 1.8rem;
+    margin: 0;
+}
+
+/* Navigation Tabs */
+nav.tabs {
+    display: flex;
+    justify-content: space-around;
+    background-color: #333;
+    padding: 0.8rem 0;
+}
+
+nav.tabs .tab {
+    color: white;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+nav.tabs .tab:hover {
+    color: #4CAF50;
+}
+
+/* Content Area */
+main.content {
+    padding: 2rem;
+}
+
+/* Footer */
+footer {
+    background-color: #333;
+    color: white;
+    text-align: center;
+    padding: 1rem 0;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
