@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2963,19 +2964,20 @@ function calcPiALC(id){
   const item = procItems.find(i=>i.id===id); if(!item) return;
   const qty    = item.qty    || 0;
   const unitKg = item.unitKg || 1;
-  const cost   = item.price  || 0;
+  const cost   = item.price  || 0;   // total product cost = qty × costPerUnit
   const alcEl  = document.getElementById('pi-alc-'+id);
   if(!alcEl) return;
   if(!qty || !cost){ alcEl.textContent='Enter cost per unit + qty to see ALC'; return; }
   const totalKg = qty * unitKg;
   const deliv   = parseFloat(document.getElementById('proc-delivery-cost')?.value)||0;
-  // Simple ALC without cross-product transport split for the inline hint
+  // ALC per unit = (total product cost + share of delivery) / total units
   const alcRaw  = (cost + (deliv / Math.max(procItems.length, 1))) / totalKg;
   const alc     = Math.round(alcRaw);
   alcEl.innerHTML = `ALC ≈ <strong style="color:var(--blue)">₦${alc.toLocaleString()}/unit</strong>
-    &nbsp;·&nbsp; Min sell: <span style="color:var(--amber)">₦${Math.round(alc*1.1).toLocaleString()}</span>
-    &nbsp;·&nbsp; 25%: <span style="color:var(--green)">₦${Math.round(alc*1.25).toLocaleString()}</span>`;
-  // Store ALC for validation
+    &nbsp;·&nbsp; Min sell (break-even): <span style="color:var(--red)">₦${alc.toLocaleString()}</span>
+    &nbsp;·&nbsp; 20% margin: <span style="color:var(--amber)">₦${Math.round(alc*1.2).toLocaleString()}</span>
+    &nbsp;·&nbsp; 35% margin: <span style="color:var(--green)">₦${Math.round(alc*1.35).toLocaleString()}</span>`;
+  // Store true ALC as floor — sell price must be ≥ ALC
   item._alc = alc;
   validateSellPrice(id);
 }
@@ -3586,9 +3588,11 @@ function calcPiCost(piId){
   const totalCost = Math.round(qty * cpu * 100) / 100;
   const tcEl = document.getElementById('pi-totalcost-'+piId);
   if(tcEl) tcEl.textContent = totalCost > 0 ? '₦' + totalCost.toLocaleString() : '—';
-  // Always keep item.price in sync — Purchase Price field removed
+  // Keep item.price in sync with computed total cost
   item.price = totalCost;
   updateProcTotals();
+  // Recalculate ALC so market price validation stays accurate
+  calcPiALC(piId);
 }
 
 // ── Home page FIFO render (mirrors screen-fifo) ───────────────
